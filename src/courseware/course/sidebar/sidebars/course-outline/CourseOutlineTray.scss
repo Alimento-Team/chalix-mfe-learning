@@ -85,7 +85,7 @@
     .collapsible-body {
         padding: 0;
 
-        ol li > a {
+        ol li>a {
             padding: var(--pgn-spacing-spacer-3-5) var(--pgn-spacing-spacer-4) var(--pgn-spacing-spacer-3-5) var(--pgn-spacing-spacer-5-5);
 
             @media (--pgn-size-breakpoint-max-width-sm) {

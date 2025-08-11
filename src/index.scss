@@ -1,5 +1,39 @@
 @use "@openedx/paragon/styles/css/core/custom-media-breakpoints" as paragonCustomMediaBreakpoints;
 
+// Define all required Bootstrap/Paragon variables before any imports
+$component-active-bg: #007bff !default;
+$component-active-color: #fff !default;
+$component-active-border-color: #007bff !default;
+$border-radius: 0.25rem !default;
+$border-color: #dee2e6 !default;
+$text-muted: #6c757d !default;
+$body-bg: #fff !default;
+$body-color: #212529 !default;
+$rounded-pill: 50rem !default;
+$btn-border-radius: $border-radius !default;
+$btn-border-radius-sm: 0.2rem !default;
+$btn-border-radius-lg: 0.3rem !default;
+$input-border-radius: $border-radius !default;
+$input-border-radius-sm: 0.2rem !default;
+$input-border-radius-lg: 0.3rem !default;
+$card-border-radius: $border-radius !default;
+$modal-content-border-radius: $border-radius !default;
+$dropdown-border-radius: $border-radius !default;
+$alert-border-radius: $border-radius !default;
+$badge-border-radius: $border-radius !default;
+$progress-border-radius: $border-radius !default;
+$list-group-border-radius: $border-radius !default;
+$navbar-brand-font-size: 1.25rem !default;
+$navbar-nav-link-padding-x: 0.5rem !default;
+$navbar-toggler-border-radius: $btn-border-radius !default;
+$enable-rounded: true !default;
+$enable-shadows: false !default;
+$enable-gradients: false !default;
+$enable-transitions: true !default;
+$enable-hover-media-query: false !default;
+$enable-grid-classes: true !default;
+$enable-print-styles: true !default;
+
 @import "~@edx/frontend-component-footer/dist/footer";
 @import "~@edx/frontend-component-header/dist/index";
 
@@ -10,10 +44,11 @@
     flex-direction: column;
     min-height: 100svh;
   }
-  
+
   main {
     flex-grow: 1;
   }
+
   #main-content {
     flex-grow: 1;
     display: flex;
@@ -30,6 +65,7 @@
       top: 0.1em;
       height: 1.75rem;
       margin-right: 1rem;
+
       img {
         display: block;
         height: 100%;
@@ -71,7 +107,7 @@
 
 .sequence-container {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   flex-grow: 1;
   margin-bottom: 4rem;
   margin-right: auto;
@@ -79,6 +115,7 @@
 }
 
 .sequence {
+
   @media (--pgn-size-breakpoint-min-width-sm) {
     border: solid 1px #eaeaea;
     border-radius: 4px;
@@ -175,6 +212,7 @@
 
   .sequence-navigation-tabs {
     overflow: auto;
+
     .btn {
       flex-basis: 100%;
       min-width: 3rem;
@@ -189,7 +227,7 @@
     max-width: 28rem;
   }
 
-  .navigation-tab-width-medium{
+  .navigation-tab-width-medium {
     max-width: 23.5rem;
   }
 
@@ -204,7 +242,7 @@
       justify-content: flex-start;
       border-right: 0;
 
-      & + .btn {
+      &+.btn {
         border-top: 0;
       }
 
@@ -292,6 +330,10 @@
   max-width: 1024px;
   margin-left: auto;
   margin-right: auto;
+  flex-grow: 1;
+  max-height: calc(100vh - 250px);
+  overflow-y: auto;
+  /* Enable scrolling for unit content when it exceeds screen height */
 
   @media (--pgn-size-breakpoint-min-width-sm) {
     padding-left: var(--pgn-spacing-grid-gutter-width);
@@ -373,7 +415,7 @@
   // I don't like this.  We need to set a height of 100% on a div created by react-focus-on, a
   // package we use in our Modal.  That div has no class name or ID, so instead we're uniquely
   // identifying it by based on a unique attribute it has which its siblings don't share.
-  > div[data-focus-lock-disabled="false"] {
+  >div[data-focus-lock-disabled="false"] {
     height: 100%;
   }
 
@@ -395,6 +437,7 @@
   &.grades {
     overflow: hidden;
     max-height: 852px;
+
     @media screen and (min-width: 992px) {
       max-height: 920px;
     }
@@ -436,12 +479,12 @@
   .course-outline-tab .pgn__card {
     .pgn__card-header {
       display: block;
-  
+
       .pgn__card-header-content {
         margin-top: 0;
       }
     }
-    
+
     .pgn__card-header-actions {
       margin-left: 0;
     }
