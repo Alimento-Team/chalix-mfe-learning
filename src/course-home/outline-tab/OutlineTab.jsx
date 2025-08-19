@@ -155,8 +155,7 @@ const OutlineTab = () => {
             }}
           />
         </div>
-        
-        {/* Course Hero Section - Based on Figma Frame 3 */}
+
         <div className="course-hero-section mb-4">
           <div className="course-hero-card">
             <div className="course-hero-content">

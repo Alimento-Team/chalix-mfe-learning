@@ -31,3 +31,4 @@ src/i18n/messages/
 
 env.config.jsx
 webpack.dev-tutor.config.js
+src/course-home/outline-tab/OutlineTab.jsx
