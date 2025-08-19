@@ -132,7 +132,7 @@ const messages = defineMessages({
   },
   resume: {
     id: 'learning.outline.resume',
-    defaultMessage: 'Tiếp tục khóa học',
+    defaultMessage: 'Vào học',
     description: 'Anchor text for button that would resume course',
   },
   setGoal: {

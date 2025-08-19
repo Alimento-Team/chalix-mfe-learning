@@ -1,0 +1,291 @@
+/* Course Home Layout Styles - Based on Figma Design */
+
+.course-home-container {
+  width: 100%;
+  padding: 20px 40px;
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Course Hero Section */
+.course-hero-section {
+  .course-hero-card {
+    background-color: #ffffff;
+    border: 1px solid #9b9595;
+    border-radius: 5px;
+    padding: 0;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .course-hero-content {
+    display: flex;
+    align-items: center;
+    min-height: 308px;
+    padding: 25px 55px;
+    gap: 40px;
+
+    @media (max-width: 768px) {
+      flex-direction: column;
+      padding: 20px;
+      gap: 20px;
+    }
+  }
+
+  .course-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+
+    .course-title {
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      font-size: 18px;
+      line-height: 1.4;
+      color: #000000;
+      margin: 0;
+      margin-bottom: 15px;
+    }
+
+  .course-description {
+    margin: 1rem 0;
+    color: #6c757d;
+    line-height: 1.6;
+    
+    // Styles for welcome message HTML content
+    .welcome-message-content {
+      // Reset margins for HTML fragments
+      p:first-child {
+        margin-top: 0;
+      }
+      
+      p:last-child {
+        margin-bottom: 0;
+      }
+      
+      // Style for any HTML content in the welcome message
+      h1, h2, h3, h4, h5, h6 {
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+        color: #212529;
+      }
+      
+      ul, ol {
+        margin: 0.5rem 0;
+        padding-left: 1.5rem;
+      }
+      
+      a {
+        color: #007bff;
+        text-decoration: none;
+        
+        &:hover {
+          text-decoration: underline;
+        }
+      }
+    }
+  }    .instructor-name {
+      font-family: 'Inter', sans-serif;
+      font-weight: 500;
+      font-size: 18px;
+      line-height: 1.4;
+      color: #000000;
+      margin: 0;
+      margin-bottom: 20px;
+    }
+  }
+
+  .course-action-button {
+    background-color: #3494c8;
+    border: none;
+    border-radius: 5px;
+    padding: 18px 60px;
+    font-family: 'Roboto', sans-serif;
+    font-weight: 600;
+    font-size: 20px;
+    line-height: 24px;
+    letter-spacing: 0.5px;
+    color: #ffffff;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 200px;
+    transition: background-color 0.2s ease;
+
+    &:hover {
+      background-color: #2980b9;
+      color: #ffffff;
+    }
+
+    &:focus {
+      background-color: #2980b9;
+      color: #ffffff;
+      box-shadow: 0 0 0 2px rgba(52, 148, 200, 0.3);
+    }
+  }
+
+  .course-image {
+    flex-shrink: 0;
+    width: 447px;
+    height: 283px;
+    border-radius: 5px;
+    overflow: hidden;
+
+    @media (max-width: 768px) {
+      width: 100%;
+      max-width: 447px;
+      height: 200px;
+    }
+
+    .course-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 5px;
+    }
+  }
+
+  // When no image is present, adjust the layout accordingly
+  .course-hero-content:not(:has(.course-image)) {
+    .course-info {
+      max-width: 100%;
+    }
+  }
+}
+
+/* Course Details Section */
+.course-details-section {
+  .course-details-card {
+    background-color: #ffffff;
+    border: 1px solid #9b9595;
+    border-radius: 5px;
+    padding: 0;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .course-details-content {
+    padding: 25px 55px;
+
+    @media (max-width: 768px) {
+      padding: 20px;
+    }
+
+    .details-title {
+      font-family: 'Roboto', sans-serif;
+      font-weight: 600;
+      font-size: 24px;
+      line-height: 24px;
+      letter-spacing: 0.5px;
+      color: #000000;
+      margin: 0 0 25px 0;
+    }
+
+    .course-description-detailed {
+      font-family: 'Roboto', sans-serif;
+      font-weight: 400;
+      font-size: 20px;
+      line-height: 24px;
+      color: #000000;
+
+      p {
+        margin-bottom: 20px;
+        line-height: 1.4;
+      }
+
+      h3 {
+        font-family: 'Roboto', sans-serif;
+        font-weight: 500;
+        font-size: 20px;
+        line-height: 24px;
+        color: #000000;
+        margin: 30px 0 15px 0;
+      }
+
+      ul {
+        list-style: none;
+        padding-left: 0;
+        margin: 0;
+
+        li {
+          position: relative;
+          padding-left: 30px;
+          margin-bottom: 15px;
+          line-height: 1.4;
+
+          &::before {
+            content: "•";
+            position: absolute;
+            left: 10px;
+            top: 0;
+            color: #000000;
+            font-weight: bold;
+          }
+        }
+      }
+    }
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .course-home-container {
+    padding: 15px 20px;
+  }
+
+  .course-hero-section .course-hero-content {
+    padding: 20px 40px;
+  }
+
+  .course-details-section .course-details-content {
+    padding: 20px 40px;
+  }
+}
+
+@media (max-width: 768px) {
+  .course-home-container {
+    padding: 10px 15px;
+  }
+
+  .course-hero-section {
+    .course-info {
+      .course-title {
+        font-size: 16px;
+      }
+
+      .course-description,
+      .instructor-name {
+        font-size: 16px;
+      }
+    }
+
+    .course-action-button {
+      font-size: 18px;
+      padding: 15px 40px;
+      width: 100%;
+      max-width: 300px;
+    }
+  }
+
+  .course-details-section {
+    .course-details-content {
+      .details-title {
+        font-size: 20px;
+      }
+
+      .course-description-detailed {
+        font-size: 18px;
+
+        h3 {
+          font-size: 18px;
+        }
+      }
+    }
+  }
+}
+
+/* Ensure proper spacing for the existing course outline content */
+.course-outline-tab {
+  margin-top: 20px;
+}
