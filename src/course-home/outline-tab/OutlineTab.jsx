@@ -208,47 +208,6 @@ const OutlineTab = () => {
           </div>
         </div>
 
-        {/* Course Details Section - Based on Figma table */}
-        {/* This section is currently disabled since detailed course overview/description isn't available in the API */}
-        {/* To enable this section when course overview API fields become available: */}
-        {/* 1. Change 'false' to a condition like: courseDescription && courseDescription.length > 100 */}
-        {/* 2. Replace the hardcoded Vietnamese content with actual course data */}
-        {/* 3. Use course overview/description from API: useModel('courseHomeMeta', courseId).courseOverview */}
-        {false && (
-          <div className="course-details-section mb-4">
-            <div className="course-details-card">
-              <div className="course-details-content">
-                <h2 className="details-title">Giới thiệu chi tiết về khóa học:</h2>
-                <div className="course-description-detailed">
-                  <p>
-                    Node.js là 1 nền tảng phát triển ứng dụng phía server. Nó sử dụng ngôn ngữ lập trình JavaScript. 
-                    Mỗi kết nối đến sẽ sinh ra 1 sự kiện, cho phép hàng chục nghìn user truy cập cùng lúc và tốc độ thì cực nhanh. 
-                    NodeJS hiện đang là 1 Javascript Engine cực hot, được nhiều người ưa chuộng bởi tốc độ nhanh, nhẹ, đơn giản 
-                    và thư viện hỗ trợ phong phú.
-                  </p>
-                  
-                  <h3>1. Những khó khăn thường gặp khi học NodeJs</h3>
-                  <ul>
-                    <li>
-                      Gặp phải thắc mắc về việc tự học công nghệ thông tin và tự theo đuổi con đường lập trình. 
-                      Bạn nhận thấy việc tự học không có thầy rất khó.
-                    </li>
-                    <li>
-                      Không biết NodeJS làm việc như thế nào, không biết cách tạo một webservice cơ bản
-                    </li>
-                    <li>
-                      Vật lộn trong việc xây dựng và thiết kế cơ sở dữ liệu
-                    </li>
-                    <li>
-                      Loay hoay xây dựng trang quản trị CSM cho blog, xây dựng API.
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Alerts Section */}
         <div className="row course-outline-tab">
           <div className="col col-12 col-md-8">
