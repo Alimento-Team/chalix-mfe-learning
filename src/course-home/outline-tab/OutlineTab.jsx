@@ -1,21 +1,18 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { sendTrackEvent } from '@edx/frontend-platform/analytics';
 import { getAuthenticatedUser } from '@edx/frontend-platform/auth';
-import { useIntl } from '@edx/frontend-platform/i18n';
-import { Button } from '@openedx/paragon';
-import LmsHtmlFragment from './LmsHtmlFragment';
+
+import CourseOutlineView from './CourseOutlineView';
 import { CourseOutlineTabNotificationsSlot } from '../../plugin-slots/CourseOutlineTabNotificationsSlot';
 import { AlertList } from '../../generic/user-messages';
 
 import CourseDates from './widgets/CourseDates';
 import CourseHandouts from './widgets/CourseHandouts';
-import StartOrResumeCourseCard from './widgets/StartOrResumeCourseCard';
 import WeeklyLearningGoalCard from './widgets/WeeklyLearningGoalCard';
 import CourseTools from './widgets/CourseTools';
 import { fetchOutlineTab } from '../data';
-import messages from './messages';
 import ShiftDatesAlert from '../suggested-schedule-messaging/ShiftDatesAlert';
 import UpgradeToShiftDatesAlert from '../suggested-schedule-messaging/UpgradeToShiftDatesAlert';
 import useCertificateAvailableAlert from './alerts/certificate-status-alert';
@@ -26,10 +23,8 @@ import useScheduledContentAlert from './alerts/scheduled-content-alert';
 import { useModel } from '../../generic/model-store';
 import ProctoringInfoPanel from './widgets/ProctoringInfoPanel';
 import AccountActivationAlert from '../../alerts/logistration-alert/AccountActivationAlert';
-import CourseHomeSectionOutlineSlot from '../../plugin-slots/CourseHomeSectionOutlineSlot';
 
 const OutlineTab = () => {
-  const intl = useIntl();
   const {
     courseId,
     proctoringPanelStatus,
@@ -38,15 +33,11 @@ const OutlineTab = () => {
   const {
     isSelfPaced,
     org,
-    title,
   } = useModel('courseHomeMeta', courseId);
-
-  const expandButtonRef = useRef();
 
   const {
     courseBlocks: {
       courses,
-      sections,
     },
     courseGoals: {
       selectedGoal,
@@ -58,7 +49,6 @@ const OutlineTab = () => {
     enableProctoredExams,
   } = useModel('outline', courseId);
 
-  const [expandAll, setExpandAll] = useState(false);
   const navigate = useNavigate();
 
   const eventProperties = {
@@ -119,29 +109,6 @@ const OutlineTab = () => {
   // Get course information from available metadata
   // Note: Course image, instructor details may not be available in current API response
   // These should be added to the backend API when course admin features are implemented
-  
-  // TODO: When course image API field becomes available, replace with:
-  // const courseImageUrl = useModel('courseHomeMeta', courseId).courseImage;
-  // or useModel('outline', courseId).courseImage;
-  const courseImageUrl = null; // No course image field available in current API
-  
-  // TODO: When instructor name API field becomes available, replace with:
-  // const instructorName = useModel('courseHomeMeta', courseId).instructorName;
-  // or useModel('outline', courseId).instructorName;
-  const instructorName = null; // No instructor field available in current API  
-  
-  // Get welcome message HTML for course description (this is what shows in the course introduction)
-  const {
-    welcomeMessageHtml,
-  } = useModel('outline', courseId);
-
-  // Get the resume course URL for the main action button
-  const {
-    resumeCourse: {
-      hasVisitedCourse,
-      url: resumeCourseUrl,
-    } = {},
-  } = useModel('outline', courseId);
 
   return (
     <>
@@ -156,60 +123,9 @@ const OutlineTab = () => {
           />
         </div>
 
-        <div className="course-hero-section mb-4">
-          <div className="course-hero-card">
-            <div className="course-hero-content">
-              {/* Left side content */}
-              <div className="course-info">
-                {/* Course title is already displayed in the page header, so we don't duplicate it here */}
-                
-                {/* Display welcome message HTML if available (this is the course introduction) */}
-                {welcomeMessageHtml && (
-                  <div className="course-description">
-                    <LmsHtmlFragment 
-                      html={welcomeMessageHtml}
-                      className="welcome-message-content"
-                    />
-                  </div>
-                )}
-                
-                {instructorName && <p className="instructor-name">Giảng viên: {instructorName}</p>}
-                
-                {/* Main action button */}
-                {resumeCourseUrl && (
-                  <Button
-                    variant="primary"
-                    size="lg"
-                    className="course-action-button"
-                    href={resumeCourseUrl}
-                    onClick={() => {
-                      // Log the click event
-                      sendTrackEvent('edx.course.home.hero.clicked', {
-                        org_key: org,
-                        courserun_key: courseId,
-                        event_type: hasVisitedCourse ? 'resume' : 'start',
-                        url: resumeCourseUrl,
-                      });
-                    }}
-                  >
-                    {hasVisitedCourse ? intl.formatMessage(messages.resume) : intl.formatMessage(messages.start)}
-                  </Button>
-                )}
-              </div>
-              
-              {/* Right side course image */}
-              {courseImageUrl && (
-                <div className="course-image">
-                  <img src={courseImageUrl} alt={title} className="course-img" />
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Alerts Section */}
-        <div className="row course-outline-tab">
-          <div className="col col-12 col-md-8">
+        {/* Course alerts */}
+        <div className="row">
+          <div className="col col-12">
             <AlertList
               topic="outline-course-alerts"
               className="mb-3"
@@ -226,25 +142,18 @@ const OutlineTab = () => {
                 <UpgradeToShiftDatesAlert model="outline" logUpgradeLinkClick={logUpgradeToShiftDatesLinkClick} />
               </>
             )}
-            {/* WelcomeMessage has been moved to the hero section above */}
-            {rootCourseId && (
-              <>
-                <div id="expand-button-row" className="row w-100 m-0 mb-3 justify-content-end">
-                  <div className="col-12 col-md-auto p-0">
-                    <Button ref={expandButtonRef} variant="outline-primary" block onClick={() => { setExpandAll(!expandAll); }}>
-                      {expandAll ? intl.formatMessage(messages.collapseAll) : intl.formatMessage(messages.expandAll)}
-                    </Button>
-                  </div>
-                </div>
-                <CourseHomeSectionOutlineSlot
-                  expandAll={expandAll}
-                  sectionIds={courses[rootCourseId].sectionIds}
-                  sections={sections}
-                />
-              </>
-            )}
           </div>
-          {rootCourseId && (
+        </div>
+
+        {/* Main Course Learning Interface */}
+        <CourseOutlineView />
+
+        {/* Additional course widgets - shown below the main interface */}
+        {rootCourseId && (
+          <div className="row mt-4">
+            <div className="col col-12 col-md-8">
+              {/* Spacer for main content */}
+            </div>
             <div className="col col-12 col-md-4">
               <ProctoringInfoPanel />
               { /** Defer showing the goal widget until the ProctoringInfoPanel has resolved or has been determined as
@@ -260,8 +169,8 @@ const OutlineTab = () => {
               <CourseDates />
               <CourseHandouts />
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </>
   );

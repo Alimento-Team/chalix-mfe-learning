@@ -1,0 +1,348 @@
+// Course Learning View Styles
+.course-learning-view {
+    background-color: rgba(255, 255, 255, 0.3);
+    min-height: 600px;
+    padding: 20px 0;
+
+    // Course Overview Section
+    .course-overview-section {
+        margin: 0 34px 20px;
+
+        .course-overview-card {
+            background-color: #ffffff;
+            border: 1px solid #9b9595;
+            border-radius: 5px;
+            height: 120px;
+            padding: 15px 29px;
+            position: relative;
+
+            .course-overview-content {
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+
+                .course-title-main {
+                    font-family: 'Inter', sans-serif;
+                    font-weight: 500;
+                    font-size: 18px;
+                    color: #000000;
+                    margin: 0 0 5px 0;
+                    text-align: center;
+                    line-height: normal;
+                }
+
+                .instructor-info {
+                    font-family: 'Inter', sans-serif;
+                    font-weight: 500;
+                    font-size: 16px;
+                    color: #000000;
+                    margin: 0;
+                    line-height: 1.4;
+                }
+
+                .course-progress-info {
+                    .total-hours {
+                        font-family: 'Inter', sans-serif;
+                        font-weight: 500;
+                        font-size: 16px;
+                        color: #000000;
+                        margin: 5px 0;
+                        line-height: 1.4;
+                    }
+
+                    .progress-container {
+                        margin-top: 8px;
+
+                        .pgn__progress-bar-track {
+                            height: 6px;
+                            background-color: #b2b2b2;
+                            border-radius: 3px;
+
+                            .pgn__progress-bar-fill {
+                                background-color: #3494c8;
+                                border-radius: 3px;
+                            }
+                        }
+
+                        // Fallback for non-Paragon progress bars
+                        .course-progress-bar {
+                            height: 6px;
+                            background-color: #b2b2b2;
+                            border-radius: 3px;
+
+                            .progress-bar {
+                                background-color: #3494c8;
+                                border-radius: 3px;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Main Content Layout
+    .course-content-layout {
+        display: flex;
+        gap: 20px;
+        margin: 0 34px;
+        align-items: flex-start;
+
+        // Left Panel - Course Modules
+        .course-modules-panel {
+            width: 547px;
+            background-color: #ffffff;
+            border: 1px solid #9b9595;
+            border-radius: 5px;
+            min-height: 596px;
+            padding: 14px;
+
+            .modules-list {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+
+                .module-item {
+                    background-color: rgba(178, 178, 178, 0.1);
+                    border: 1px solid rgba(178, 178, 178, 0.2);
+                    border-radius: 8px;
+                    height: 80px;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                    position: relative;
+
+                    &:hover {
+                        background-color: rgba(178, 178, 178, 0.15);
+                    }
+
+                    &.active {
+                        background-color: #3494c8;
+                        border-color: rgba(178, 178, 178, 0.2);
+
+                        .module-title {
+                            color: #ffffff;
+                        }
+
+                        .module-subtitle {
+                            color: #ffffff;
+                        }
+
+                        .module-icon svg {
+                            filter: brightness(0) invert(1); // Make icon white
+                        }
+                    }
+
+                    .module-content {
+                        display: flex;
+                        align-items: center;
+                        height: 100%;
+                        padding: 0 15px;
+
+                        .module-icon {
+                            width: 40px;
+                            height: 40px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            margin-right: 15px;
+                            flex-shrink: 0;
+
+                            svg {
+                                width: 30px;
+                                height: 30px;
+                            }
+                        }
+
+                        .module-info {
+                            flex: 1;
+
+                            .module-title {
+                                font-family: 'Inter', sans-serif;
+                                font-weight: 600;
+                                font-size: 16px;
+                                color: #000000;
+                                margin: 0 0 5px 0;
+                                line-height: 1.4;
+                            }
+
+                            .module-subtitle {
+                                font-family: 'Inter', sans-serif;
+                                font-weight: 500;
+                                font-size: 14px;
+                                color: #696060;
+                                margin: 0;
+                                line-height: 1.4;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Right Panel - Module Details
+        .module-details-panel {
+            width: 791px;
+            background-color: #ffffff;
+            border: 1px solid #9b9595;
+            min-height: 593px;
+
+            // Module Header
+            .module-header {
+                background-color: #00aaed;
+                height: 60px;
+                position: relative;
+
+                .module-header-content {
+                    display: flex;
+                    align-items: center;
+                    height: 100%;
+                    padding: 0 20px;
+
+                    .module-icon-large {
+                        width: 40px;
+                        height: 40px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        margin-right: 15px;
+                        flex-shrink: 0;
+
+                        svg {
+                            width: 30px;
+                            height: 30px;
+                            filter: brightness(0) invert(1); // White icon
+                        }
+                    }
+
+                    .module-header-info {
+                        flex: 1;
+
+                        .module-detail-title {
+                            font-family: 'Inter', sans-serif;
+                            font-weight: 600;
+                            font-size: 16px;
+                            color: #ffffff;
+                            margin: 0 0 5px 0;
+                            line-height: 1.4;
+                        }
+
+                        .module-content-count {
+                            font-family: 'Inter', sans-serif;
+                            font-weight: 600;
+                            font-size: 16px;
+                            color: #ffffff;
+                            margin: 0;
+                            line-height: 1.4;
+                        }
+                    }
+
+                    .module-actions {
+                        .favorite-button {
+                            width: 40px;
+                            height: 40px;
+                            background-color: #e9e0e0;
+                            border-radius: 20px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            border: none;
+                            padding: 0;
+
+                            svg {
+                                width: 30px;
+                                height: 30px;
+                                color: #333;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Content List
+            .content-list {
+                padding: 25px 24px;
+
+                .content-item {
+                    border: 1px solid #b2b2b2;
+                    border-radius: 8px;
+                    height: 70px;
+                    margin-bottom: 12px;
+                    box-shadow: 0px 1px 1px 0px rgba(0, 0, 0, 0.25);
+
+                    &:last-child {
+                        margin-bottom: 0;
+                    }
+
+                    .content-item-inner {
+                        display: flex;
+                        align-items: center;
+                        height: 100%;
+                        padding: 0 15px;
+
+                        .content-icon {
+                            width: 40px;
+                            height: 40px;
+                            background-color: #e9e0e0;
+                            border-radius: 20px;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            margin-right: 15px;
+                            flex-shrink: 0;
+
+                            svg {
+                                width: 30px;
+                                height: 30px;
+                                color: #333;
+                            }
+                        }
+
+                        .content-info {
+                            flex: 1;
+
+                            .content-title {
+                                font-family: 'Inter', sans-serif;
+                                font-weight: 600;
+                                font-size: 16px;
+                                margin: 0 0 5px 0;
+                                line-height: 1.4;
+
+                                .content-type-label {
+                                    color: #000000;
+                                }
+
+                                .content-description {
+                                    color: #555555;
+                                }
+                            }
+
+                            .content-subtitle {
+                                font-family: 'Inter', sans-serif;
+                                font-weight: 600;
+                                font-size: 12px;
+                                color: #555555;
+                                margin: 0;
+                                line-height: 1.4;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Responsive adjustments
+@media (max-width: 1200px) {
+    .course-learning-view {
+        .course-content-layout {
+            flex-direction: column;
+
+            .course-modules-panel,
+            .module-details-panel {
+                width: 100%;
+            }
+        }
+    }
+}
