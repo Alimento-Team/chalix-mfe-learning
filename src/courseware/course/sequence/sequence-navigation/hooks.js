@@ -26,6 +26,26 @@ export function useSequenceNavigationMetadata(currentSequenceId, currentUnitId) 
     };
   }
 
+  // Handle case where sequenceIds is undefined or empty
+  if (!sequenceIds || !Array.isArray(sequenceIds) || sequenceIds.length === 0) {
+    return {
+      isFirstUnit: true,
+      isLastUnit: true,
+      navigationDisabledNextSequence: false,
+      navigationDisabledPrevSequence: false,
+    };
+  }
+
+  // Handle case where sequence model doesn't exist (malformed hierarchy)
+  if (!sequence || !sequence.unitIds || !Array.isArray(sequence.unitIds)) {
+    return {
+      isFirstUnit: true,
+      isLastUnit: true,
+      navigationDisabledNextSequence: false,
+      navigationDisabledPrevSequence: false,
+    };
+  }
+
   // if entrance exam is not passed then we should treat this as 1st and last unit
   if (entranceExamPassed === false) {
     return {

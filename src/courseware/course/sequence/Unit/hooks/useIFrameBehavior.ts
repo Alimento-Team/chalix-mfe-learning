@@ -37,8 +37,8 @@ const useIFrameBehavior = ({
   const activeSequenceId = useSelector(getSequenceId);
   const navigate = useNavigate();
   const activeSequence = useModel('sequences', activeSequenceId);
-  const activeUnitId = activeSequence.unitIds.length > 0
-    ? activeSequence.unitIds[activeSequence.activeUnitIndex] : null;
+  const activeUnitId = activeSequence && activeSequence.unitIds && activeSequence.unitIds.length > 0
+    ? activeSequence.unitIds[activeSequence.activeUnitIndex || 0] : null;
   const { isLastUnit, nextLink } = useSequenceNavigationMetadata(activeSequenceId, activeUnitId);
 
   const [iframeHeight, setIframeHeight] = iframeBehaviorState.iframeHeight(0);
@@ -97,6 +97,9 @@ const useIFrameBehavior = ({
     setIframeHeight,
     windowTopOffset,
     setWindowTopOffset,
+    isLastUnit,
+    nextLink,
+    navigate,
   ]);
 
   useEventListener('message', receiveMessage);

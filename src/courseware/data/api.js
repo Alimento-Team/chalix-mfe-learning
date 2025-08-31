@@ -104,6 +104,69 @@ export async function getCourseOutline(courseId) {
 }
 
 /**
+ * Get course outline from Course Studio (includes draft content)
+ * @param {string} courseId - The unique identifier for the course.
+ * @returns {Promise<Object>} - The course outline including draft content
+ */
+export async function getCourseOutlineWithDrafts(courseId) {
+  try {
+    // Try to get draft content from Course Studio
+    const { data } = await getAuthenticatedHttpClient()
+      .get(`${getConfig().STUDIO_BASE_URL}/course/${courseId}?format=concise`);
+    
+    // Convert Studio format to LMS-compatible format
+    return convertStudioOutlineToLMSFormat(courseId, data);
+  } catch (error) {
+    console.warn('Could not fetch draft content from Course Studio, falling back to published content:', error);
+    // Fallback to published content
+    return getCourseOutline(courseId);
+  }
+}
+
+/**
+ * Convert Course Studio outline format to LMS-compatible format
+ */
+function convertStudioOutlineToLMSFormat(courseId, studioData) {
+  const blocks = {};
+  
+  // Process course root
+  blocks[courseId] = {
+    id: courseId,
+    type: 'course',
+    display_name: studioData.display_name || '',
+    children: studioData.child_info?.children || []
+  };
+  
+  // Process all child blocks recursively
+  function processChildren(children) {
+    if (!children) return;
+    
+    children.forEach(child => {
+      blocks[child.id] = {
+        id: child.id,
+        type: child.category || 'unknown',
+        display_name: child.display_name || '',
+        children: child.child_info?.children?.map(c => c.id) || [],
+        has_children: child.has_children || false,
+        published: child.published || false,
+        visibility_state: child.visibility_state || 'private'
+      };
+      
+      // Process nested children
+      if (child.child_info?.children) {
+        processChildren(child.child_info.children);
+      }
+    });
+  }
+  
+  if (studioData.child_info?.children) {
+    processChildren(studioData.child_info.children);
+  }
+  
+  return normalizeOutlineBlocks(courseId, blocks);
+}
+
+/**
  * Get waffle flag value that enables completion tracking.
  * @param {string} courseId - The unique identifier for the course.
  * @returns {Promise<{enable_completion_tracking: boolean}>} - The object

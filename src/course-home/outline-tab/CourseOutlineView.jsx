@@ -17,158 +17,57 @@ import './CourseOutlineView.scss';
 
 const CourseOutlineView = () => {
   const { courseId } = useSelector(state => state.courseHome);
-  const [selectedSectionIndex, setSelectedSectionIndex] = useState(0);
-  const [sequences, setSequences] = useState({});
-  const [loading, setLoading] = useState(false);
+  const [selectedModuleIndex, setSelectedModuleIndex] = useState(0);
+  const [courseData, setCourseData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const {
-    title,
-    originalUserIsStaff,
-    isStaff,
-  } = useModel('courseHomeMeta', courseId);
-
-  const {
-    courseBlocks: {
-      courses,
-      sections,
-      sequences: outlineSequences,
-    },
-  } = useModel('outline', courseId);
-
-  const rootCourseId = courses && Object.keys(courses)[0];
-  const courseSections = rootCourseId ? courses[rootCourseId].sectionIds.map(id => sections[id]).filter(Boolean) : [];
-
-  // Get selected section
-  const selectedSection = courseSections[selectedSectionIndex];
-
-  // Fetch sequence details when section changes
+  // Fetch simplified course data from the new API
   useEffect(() => {
-    if (selectedSection && selectedSection.sequenceIds) {
-      setLoading(true);
-      // Get detailed sequence information for the selected section
-      const fetchSequenceDetails = async () => {
-        try {
-          const sequencePromises = selectedSection.sequenceIds.map(async (sequenceId) => {
-            if (outlineSequences[sequenceId]) {
-              const sequence = outlineSequences[sequenceId];
-              
-              // Try to get additional metadata if available
-              try {
-                const { data } = await getAuthenticatedHttpClient().get(
-                  `${getConfig().LMS_BASE_URL}/api/courseware/sequence/${sequenceId}`
-                );
-                
-                return {
-                  ...sequence,
-                  ...data,
-                  type: sequence.icon || 'video', // Default to video if no icon specified
-                };
-              } catch (error) {
-                // If detailed metadata fails, use outline data
-                return {
-                  ...sequence,
-                  type: sequence.icon || 'video',
-                };
-              }
-            }
-            return null;
-          });
-
-          const sequenceDetails = await Promise.all(sequencePromises);
-          const validSequences = sequenceDetails.filter(Boolean);
-          
-          setSequences(prev => ({
-            ...prev,
-            [selectedSection.id]: validSequences,
-          }));
-        } catch (error) {
-          console.error('Error fetching sequence details:', error);
-          // Fallback to outline sequences
-          const fallbackSequences = selectedSection.sequenceIds.map(id => outlineSequences[id]).filter(Boolean);
-          setSequences(prev => ({
-            ...prev,
-            [selectedSection.id]: fallbackSequences,
-          }));
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      fetchSequenceDetails();
-    }
-  }, [selectedSection, outlineSequences]);
-
-  // Get progress data from course metadata
-  const courseProgress = useModel('outline', courseId);
-  const progressData = courseProgress?.courseBlocks;
-
-  // Calculate progress
-  const calculateProgress = () => {
-    if (!progressData || !courseSections) return { completed: 0, total: 100 };
-    
-    let totalSections = courseSections.length;
-    let completedSections = courseSections.filter(section => section.complete).length;
-    
-    return {
-      completed: completedSections,
-      total: totalSections,
-      percentage: totalSections > 0 ? (completedSections / totalSections) * 100 : 0,
-    };
-  };
-
-  const progress = calculateProgress();
-
-  // Map sequence type to icon and display info
-  const getContentTypeInfo = (sequence) => {
-    // Determine content type based on sequence properties
-    let icon = LmsVideocamIcon;
-    let type = 'video';
-    let subtitle = '';
-
-    if (sequence.icon) {
-      switch (sequence.icon) {
-        case 'video':
-        case 'problem':
-          icon = LmsVideocamIcon;
-          type = 'video';
-          break;
-        case 'other':
-        default:
-          icon = BookIcon;
-          type = 'document';
-          break;
+    const fetchCourseData = async () => {
+      try {
+        setLoading(true);
+        const response = await getAuthenticatedHttpClient().get(
+          `${getConfig().LMS_BASE_URL}/api/course_home/simplified_outline/${courseId}`
+        );
+        setCourseData(response.data);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching course data:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
       }
-    }
+    };
 
-    // Generate subtitle based on sequence metadata
-    if (sequence.effortTime) {
-      subtitle = sequence.effortTime;
-    } else if (sequence.due) {
-      const dueDate = new Date(sequence.due);
-      subtitle = dueDate.toLocaleDateString('vi-VN');
-    } else {
-      subtitle = 'Nội dung học tập';
+    if (courseId) {
+      fetchCourseData();
     }
+  }, [courseId]);
 
-    return { icon, type, subtitle };
+  // Map content type to icon
+  const getContentIcon = (contentType) => {
+    switch (contentType) {
+      case 'video':
+        return LmsVideocamIcon;
+      case 'slide':
+        return BookIcon;
+      case 'questions':
+        return QuestionIcon;
+      default:
+        return LmsVideocamIcon;
+    }
   };
 
-  // Get instructor name from course metadata
-  const getInstructorName = () => {
-    // This would come from course metadata - for now use a default
-    // In a real implementation, this should be added to the course metadata API
-    return 'Giảng viên khóa học';
-  };
-
-  // Early return if no course data
-  if (!courseSections || courseSections.length === 0) {
+  // Show loading state
+  if (loading) {
     return (
       <div className="course-learning-view">
         <div className="course-overview-section">
           <div className="course-overview-card">
             <div className="course-overview-content">
               <h1 className="course-title-main">
-                {title || 'Đang tải khóa học...'}
+                Đang tải khóa học...
               </h1>
             </div>
           </div>
@@ -177,7 +76,45 @@ const CourseOutlineView = () => {
     );
   }
 
-  const selectedSequences = sequences[selectedSection?.id] || [];
+  // Show error state
+  if (error) {
+    return (
+      <div className="course-learning-view">
+        <div className="course-overview-section">
+          <div className="course-overview-card">
+            <div className="course-overview-content">
+              <h1 className="course-title-main">
+                Lỗi tải khóa học
+              </h1>
+              <p className="instructor-info">
+                {error}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // No course data
+  if (!courseData || !courseData.modules) {
+    return (
+      <div className="course-learning-view">
+        <div className="course-overview-section">
+          <div className="course-overview-card">
+            <div className="course-overview-content">
+              <h1 className="course-title-main">
+                Không tìm thấy nội dung khóa học
+              </h1>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const { course_info: courseInfo, modules } = courseData;
+  const selectedModule = modules[selectedModuleIndex];
 
   return (
     <div className="course-learning-view">
@@ -186,18 +123,18 @@ const CourseOutlineView = () => {
         <div className="course-overview-card">
           <div className="course-overview-content">
             <h1 className="course-title-main">
-              {title || 'KHÓA HỌC TRỰC TUYẾN'}
+              {courseInfo.title}
             </h1>
             <p className="instructor-info">
-              Giảng viên: {getInstructorName()}
+              Giảng viên: {courseInfo.instructor_name}
             </p>
             <div className="course-progress-info">
               <p className="total-hours">
-                Tổng số chuyên đề: {courseSections.length}
+                Tổng số chuyên đề: {courseInfo.total_modules}
               </p>
               <div className="progress-container">
                 <ProgressBar
-                  now={progress.percentage}
+                  now={courseInfo.progress_percentage}
                   className="course-progress-bar"
                 />
               </div>
@@ -208,20 +145,20 @@ const CourseOutlineView = () => {
 
       {/* Main Content Area */}
       <div className="course-content-layout">
-        {/* Left Column - Course Modules/Sections */}
+        {/* Left Column - Course Modules */}
         <div className="course-modules-panel">
           <div className="modules-list">
-            {courseSections.map((section, index) => (
+            {modules.map((module, index) => (
               <div
-                key={section.id}
+                key={module.id}
                 className={classNames('module-item', {
-                  active: index === selectedSectionIndex,
-                  completed: section.complete,
+                  active: index === selectedModuleIndex,
+                  completed: module.complete,
                 })}
-                onClick={() => setSelectedSectionIndex(index)}
+                onClick={() => setSelectedModuleIndex(index)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
-                    setSelectedSectionIndex(index);
+                    setSelectedModuleIndex(index);
                   }
                 }}
                 role="button"
@@ -233,10 +170,10 @@ const CourseOutlineView = () => {
                   </div>
                   <div className="module-info">
                     <h3 className="module-title">
-                      {section.title}
+                      {module.title}
                     </h3>
                     <p className="module-subtitle">
-                      {section.sequenceIds?.length || 0} Nội dung
+                      {module.units_count} Nội dung
                     </p>
                   </div>
                 </div>
@@ -245,11 +182,11 @@ const CourseOutlineView = () => {
           </div>
         </div>
 
-        {/* Right Column - Section Details with Sequences */}
+        {/* Right Column - Module Details with Units */}
         <div className="module-details-panel">
-          {selectedSection && (
+          {selectedModule && (
             <>
-              {/* Section Header */}
+              {/* Module Header */}
               <div className="module-header">
                 <div className="module-header-content">
                   <div className="module-icon-large">
@@ -257,10 +194,10 @@ const CourseOutlineView = () => {
                   </div>
                   <div className="module-header-info">
                     <h2 className="module-detail-title">
-                      {selectedSection.title}
+                      {selectedModule.title}
                     </h2>
                     <p className="module-content-count">
-                      {selectedSection.sequenceIds?.length || 0} Nội dung
+                      {selectedModule.units_count} Nội dung
                     </p>
                   </div>
                   <div className="module-actions">
@@ -274,34 +211,24 @@ const CourseOutlineView = () => {
                 </div>
               </div>
 
-              {/* Sequences List */}
+              {/* Units List */}
               <div className="content-list">
-                {loading ? (
-                  <div className="content-item">
-                    <div className="content-item-inner">
-                      <div className="content-info">
-                        <h4 className="content-title">
-                          Đang tải nội dung...
-                        </h4>
-                      </div>
-                    </div>
-                  </div>
-                ) : selectedSequences.length > 0 ? (
-                  selectedSequences.map((sequence) => {
-                    const { icon: SequenceIcon, type, subtitle } = getContentTypeInfo(sequence);
+                {selectedModule.units && selectedModule.units.length > 0 ? (
+                  selectedModule.units.map((unit) => {
+                    const UnitIcon = getContentIcon(unit.content_type);
                     
                     return (
-                      <div key={sequence.id} className="content-item">
+                      <div key={unit.id} className="content-item">
                         <div className="content-item-inner">
                           <div className="content-icon">
-                            <SequenceIcon />
+                            <UnitIcon />
                           </div>
                           <div className="content-info">
                             <h4 className="content-title">
-                              <span className="content-type-label">{sequence.title}</span>
+                              <span className="content-type-label">{unit.title}</span>
                             </h4>
                             <p className="content-subtitle">
-                              {subtitle}
+                              {unit.content_metadata?.subtitle || 'Nội dung học tập'}
                             </p>
                           </div>
                         </div>

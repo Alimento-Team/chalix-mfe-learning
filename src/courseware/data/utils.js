@@ -201,6 +201,26 @@ export function normalizeOutlineBlocks(courseId, blocks) {
         };
         break;
 
+      // Handle component types that can appear in course outlines
+      case 'openassessment':
+      case 'problem':
+      case 'html':
+      case 'video':
+      case 'discussion':
+      case 'drag-and-drop-v2':
+      case 'poll':
+      case 'survey':
+      case 'word_cloud':
+      case 'lti':
+      case 'lti_consumer':
+      case 'done':
+      case 'library':
+      case 'library_v2':
+      case 'itembank':
+        // These are component blocks that don't need special handling in the outline
+        // but should not trigger the unexpected block type warning
+        break;
+
       default:
         logInfo(`Unexpected course block type: ${block.type} with ID ${block.id}.  Expected block types are course, chapter, and sequential.`);
     }

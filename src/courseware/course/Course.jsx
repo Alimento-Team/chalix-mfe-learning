@@ -15,6 +15,8 @@ import { NotificationsDiscussionsSidebarTriggerSlot } from '../../plugin-slots/N
 import { CelebrationModal, shouldCelebrateOnSectionLoad, WeeklyGoalCelebrationModal } from './celebration';
 import ContentTools from './content-tools';
 import Sequence from './sequence';
+import Unit from './sequence/Unit';
+import CourseLearningLayout from './course-layout/CourseLearningLayout';
 import { CourseOutlineMobileSidebarTriggerSlot } from '../../plugin-slots/CourseOutlineMobileSidebarTriggerSlot';
 import { CourseBreadcrumbsSlot } from '../../plugin-slots/CourseBreadcrumbsSlot';
 
@@ -52,6 +54,7 @@ const Course = ({
 
   // Below the tabs, above the breadcrumbs alerts (appearing in the order listed here)
   const dispatch = useDispatch();
+  const sequences = useModel('sequences'); // Move useModel to top level
 
   const [firstSectionCelebrationOpen, setFirstSectionCelebrationOpen] = useState(false);
   // If streakLengthToCelebrate is populated, that modal takes precedence. Wait til the next load to display
@@ -61,6 +64,23 @@ const Course = ({
   );
   const shouldDisplayChat = windowWidth >= breakpoints.medium.minWidth;
   const daysPerWeek = course?.courseGoals?.selectedGoal?.daysPerWeek;
+
+  const unit = useModel('units', unitId);
+
+  const handleUnitSelect = (newUnitId) => {
+    unitNavigationHandler(unitId);
+  };
+
+  const handleSequenceSelect = (sequenceId) => {
+    // Navigate to the first unit of the selected sequence
+    const targetSequence = sequences[sequenceId];
+    if (targetSequence && targetSequence.unitIds && targetSequence.unitIds.length > 0) {
+      const firstUnitId = targetSequence.unitIds[0];
+      navigate(`/course/${courseId}/${sequenceId}/${firstUnitId}`);
+    } else {
+      navigate(`/course/${courseId}/${sequenceId}`);
+    }
+  };
 
   useEffect(() => {
     const celebrateFirstSection = celebrations && celebrations.firstSection;
@@ -80,41 +100,38 @@ const Course = ({
       <Helmet>
         <title>{`${pageTitleBreadCrumbs.join(' | ')} | ${getConfig().SITE_NAME}`}</title>
       </Helmet>
-      <div className="position-relative d-flex align-items-xl-center mb-4 mt-1 flex-column flex-xl-row">
-        <CourseBreadcrumbsSlot
-          courseId={courseId}
-          sectionId={section ? section.id : null}
-          sequenceId={sequenceId}
-          isStaff={isStaff}
-          unitId={unitId}
-        />
-        {shouldDisplayChat && (
-          <>
-            <Chat
-              enabled={course.learningAssistantEnabled}
-              enrollmentMode={course.enrollmentMode}
-              isStaff={isStaff}
-              courseId={courseId}
-              contentToolsEnabled={course.showCalculator || course.notes.enabled}
-              unitId={unitId}
-            />
-          </>
-        )}
-        <div className="w-100 d-flex align-items-center">
-          <CourseOutlineMobileSidebarTriggerSlot />
-          <NotificationsDiscussionsSidebarTriggerSlot courseId={courseId} />
-        </div>
-      </div>
-
-      <AlertList topic="sequence" />
-      <Sequence
-        unitId={unitId}
-        sequenceId={sequenceId}
+      
+      {/* Use the new course learning layout */}
+      <CourseLearningLayout
         courseId={courseId}
-        unitNavigationHandler={unitNavigationHandler}
-        nextSequenceHandler={nextSequenceHandler}
-        previousSequenceHandler={previousSequenceHandler}
-      />
+        sequenceId={sequenceId}
+        unitId={unitId}
+        onUnitSelect={handleUnitSelect}
+        onSequenceSelect={handleSequenceSelect}
+      >
+        {/* Render unit content when a unit is selected */}
+        {unitId && unit ? (
+          <Unit
+            courseId={courseId}
+            format={sequence?.format || null}
+            key={unitId}
+            id={unitId}
+            onLoaded={() => {}}
+            isOriginalUserStaff={course?.isStaff || false}
+            renderUnitNavigation={() => null}
+          />
+        ) : unitId && !unit ? (
+          <div style={{ 
+            padding: '40px', 
+            textAlign: 'center', 
+            color: '#666666',
+            fontFamily: 'Inter, sans-serif' 
+          }}>
+            Loading unit content...
+          </div>
+        ) : null}
+      </CourseLearningLayout>
+
       <CelebrationModal
         courseId={courseId}
         isOpen={firstSectionCelebrationOpen}

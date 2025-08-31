@@ -8,6 +8,7 @@ import {
   getCourseDiscussionConfig,
   getCourseMetadata,
   getCourseOutline,
+  getCourseOutlineWithDrafts,
   getCourseTopics,
   getCoursewareOutlineSidebarToggles,
   getLearningSequencesOutline,
@@ -279,10 +280,30 @@ export function getCourseOutlineStructure(courseId) {
   return async (dispatch) => {
     dispatch(fetchCourseOutlineRequest());
     try {
+      // Use the standard LMS navigation API for published content
       const courseOutline = await getCourseOutline(courseId);
       dispatch(fetchCourseOutlineSuccess({ courseOutline }));
     } catch (error) {
       logError(error);
+      dispatch(fetchCourseOutlineFailure());
+    }
+  };
+}
+
+/**
+ * Force refresh course outline including draft content
+ * This is useful when content has been created/modified in Course Studio
+ */
+export function refreshCourseOutlineWithDrafts(courseId) {
+  return async (dispatch) => {
+    dispatch(fetchCourseOutlineRequest());
+    try {
+      // Force refresh from Course Studio
+      const courseOutline = await getCourseOutlineWithDrafts(courseId);
+      dispatch(fetchCourseOutlineSuccess({ courseOutline }));
+      logInfo(`Course outline refreshed for course ${courseId}, including draft content`);
+    } catch (error) {
+      logError('Failed to refresh course outline with drafts:', error);
       dispatch(fetchCourseOutlineFailure());
     }
   };

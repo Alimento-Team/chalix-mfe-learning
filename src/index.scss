@@ -97,12 +97,14 @@ footer {
 
   main {
     flex-grow: 1;
+    overflow: hidden; // Prevent main content from scrolling
   }
 
   #main-content {
     flex-grow: 1;
     display: flex;
     flex-direction: column;
+    overflow: hidden; // Prevent main content area from scrolling
   }
 
   header {
@@ -381,9 +383,9 @@ footer {
   margin-left: auto;
   margin-right: auto;
   flex-grow: 1;
-  max-height: calc(100vh - 250px);
-  overflow-y: auto;
-  /* Enable scrolling for unit content when it exceeds screen height */
+  max-height: 100%; // Remove height constraint
+  overflow: visible; // Remove scrolling - let parent handle it
+  /* Scrolling is now handled by the parent container */
 
   @media (--pgn-size-breakpoint-min-width-sm) {
     padding-left: var(--pgn-spacing-grid-gutter-width);
@@ -397,28 +399,22 @@ footer {
 }
 
 .unit-iframe-wrapper {
-  margin-top: 0;
+  margin: 0; // Remove all margins to prevent spacing issues and horizontal scroll
+  width: 100%;
 
-  // Some XBlocks (such as xblock-drag-and-drop-v2) rely on the viewport width
-  // to determine their layout on mobile. This is problematic because the
-  // viewport width may not be the same as the width of the iframe. To fix this,
-  // here we compensate for the padding of the parent div with "container-xl"
-  // class to ensure that the viewport width is the same as the width of the
-  // iframe.
-  margin-left: calc(var(--pgn-spacing-grid-gutter-width) * -0.5);
-  margin-right: calc(var(--pgn-spacing-grid-gutter-width) * -0.5);
+  // Remove negative margins that cause horizontal overflow
+  // This was causing the content to extend beyond the container
 
-  margin-bottom: 2rem;
-
-  @media (min-width: 830px) {
-    margin: 0 -40px 2rem;
-  }
+  // For our simplified layout, we don't need these compensating margins
+  // as the content should fit within its container properly
 }
 
 #unit-iframe {
   width: 100%;
   border: none;
   display: block;
+  max-width: 100%; // Prevent iframe from exceeding container width
+  overflow-x: hidden; // Hide horizontal scrollbar if content is too wide
 }
 
 .unit-navigation {
@@ -560,3 +556,23 @@ footer {
 @import "course-tabs/course-tabs-navigation.scss";
 @import "courseware/course/sidebar/common/SidebarBase.scss";
 @import "courseware/course/sidebar/sidebars/course-outline/CourseOutlineTray.scss";
+
+// Custom styles for independent scrolling layout
+.course-learning-layout {
+  height: 100vh;
+  overflow: hidden;
+
+  .left-panel {
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .right-panel {
+    overflow: hidden;
+
+    .content-area {
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+  }
+}

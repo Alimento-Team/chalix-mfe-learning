@@ -58,7 +58,7 @@ const ContentIFrame = ({
     allow: IFRAME_FEATURE_POLICY,
     allowFullScreen: true,
     height: iframeHeight,
-    scrolling: 'no',
+    scrolling: 'yes', // Enable iframe scrolling to show full content
     referrerPolicy: 'origin',
     onLoad: handleIFrameLoad,
   };
@@ -69,8 +69,19 @@ const ContentIFrame = ({
         showError ? <ErrorPage /> : <ContentIFrameLoaderSlot courseId={courseId} loadingMessage={loadingMessage} />
       )}
       {shouldShowContent && (
-        <div className="unit-iframe-wrapper">
-          <iframe title={title} {...contentIFrameProps} data-testid={testIDs.contentIFrame} />
+        <div className="unit-iframe-wrapper" style={{
+          width: '100%',
+          minHeight: '100%',
+          padding: '0', // Remove any default padding that might cause gaps
+          margin: '0'   // Remove any default margin that might cause gaps
+        }}>
+          <iframe title={title} {...contentIFrameProps} data-testid={testIDs.contentIFrame} style={{
+            width: '100%',
+            border: 'none',
+            display: 'block',
+            margin: '0',
+            padding: '0'
+          }} />
         </div>
       )}
       {modalOptions.isOpen

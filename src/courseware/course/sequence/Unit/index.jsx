@@ -10,11 +10,11 @@ import { usePluginsCallback } from '@src/generic/plugin-store';
 
 import messages from '../messages';
 import ContentIFrame from './ContentIFrame';
-import UnitSuspense from './UnitSuspense';
+// import UnitSuspense from './UnitSuspense'; // Temporarily commented out to debug import issues
 import { modelKeys, views } from './constants';
 import { useExamAccess, useShouldDisplayHonorCode } from './hooks';
 import { getIFrameUrl } from './urls';
-import UnitTitleSlot from '../../../../plugin-slots/UnitTitleSlot';
+// Removed UnitTitleSlot import since we're not using it anymore
 
 const Unit = ({
   courseId,
@@ -46,9 +46,9 @@ const Unit = ({
   const iframeUrl = getUrl();
 
   return (
-    <div className="unit">
-      <UnitTitleSlot unitId={id} {...{ unit, renderUnitNavigation }} />
-      <UnitSuspense {...{ courseId, id }} />
+    <div className="unit" style={{ margin: '0', padding: '0' }}>
+      {/* Remove UnitTitleSlot to prevent duplicate title - title is already shown in blue header */}
+      {/* Temporarily remove UnitSuspense to debug import issues */}
       <ContentIFrame
         elementId="unit-iframe"
         id={id}
