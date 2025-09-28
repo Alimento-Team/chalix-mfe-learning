@@ -14,6 +14,7 @@ const Reaction = ({
   icon,
   active,
   onClick,
+  count,
 }) => (
   <button
     type="button"
@@ -22,7 +23,12 @@ const Reaction = ({
     aria-pressed={!!active}
   >
     <img src={icon} alt={label} className="emoji-icon" />
-    <span className="label">{label}</span>
+    <span className="label">
+      {label}
+      {typeof count === 'number' && (
+        <span className="count-badge" aria-hidden="true"> {count}</span>
+      )}
+    </span>
   </button>
 );
 
@@ -30,6 +36,7 @@ Reaction.propTypes = {
   label: PropTypes.string.isRequired,
   icon: PropTypes.string,
   active: PropTypes.bool,
+  count: PropTypes.number,
   onClick: PropTypes.func.isRequired,
 };
 
@@ -67,19 +74,16 @@ const ReviewWidget = ({ courseId, unitUsageKey }) => {
 
   return (
     <div className="chalix-review-widget" aria-label="Course quick review">
-      <div className="title">Đánh giá nhanh</div>
+      <div className="title">Đánh giá</div>
       <div className="review-columns">
         <div className="review-col">
-    <Reaction label="Yêu thích" icon={imgLike} active={selected === 'like'} onClick={() => submit('like')} />
-          <span className="counter">{summary.like} yêu thích</span>
+    <Reaction label="Yêu thích" icon={imgLike} active={selected === 'like'} onClick={() => submit('like')} count={summary.like} />
         </div>
         <div className="review-col">
-    <Reaction label="Trung bình" icon={imgNeutral} active={selected === 'neutral'} onClick={() => submit('neutral')} />
-          <span className="counter">{summary.neutral} trung bình</span>
+    <Reaction label="Trung bình" icon={imgNeutral} active={selected === 'neutral'} onClick={() => submit('neutral')} count={summary.neutral} />
         </div>
         <div className="review-col">
-    <Reaction label="Không thích" icon={imgDislike} active={selected === 'dislike'} onClick={() => submit('dislike')} />
-          <span className="counter">{summary.dislike} không thích</span>
+    <Reaction label="Không thích" icon={imgDislike} active={selected === 'dislike'} onClick={() => submit('dislike')} count={summary.dislike} />
         </div>
       </div>
       {submitting && <div className="submitting">Đang gửi...</div>}

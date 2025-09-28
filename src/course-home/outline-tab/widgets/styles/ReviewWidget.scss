@@ -2,12 +2,12 @@
 .chalix-review-widget {
     .title {
         font-weight: 600;
-        margin-bottom: 8px;
+        margin: 10px;
     }
 
     .reactions {
         display: flex;
-        gap: 24px;
+        gap: 4px;
         /* more breathing room between buttons */
         margin-bottom: 12px;
     }
@@ -15,18 +15,20 @@
     .chalix-review-emoji {
         display: inline-flex;
         align-items: center;
-        gap: 10px;
+        /* vertically center icon + label */
+        gap: 8px;
         /* icon-to-label spacing */
-        padding: 8px 12px;
-        border: 1px solid #bdbdbd;
-        background: #fff;
+        padding: 4px 6px;
+        border: none;
+        /* remove visible border */
+        background: #7064ef14;
         border-radius: 4px;
         cursor: pointer;
     }
 
     .chalix-review-emoji.active {
-        background: #f0f8ff;
-        border-color: #3494c8;
+        background: #88b1dd;
+        /* subtle tint when active */
     }
 
     .emoji-icon {
@@ -39,6 +41,14 @@
     .label {
         font-size: 16px;
         line-height: 1.25;
+    }
+
+    .count-badge {
+        display: inline-block;
+        margin-left: 6px;
+        font-size: 14px;
+        color: #6b6b6b;
+        font-weight: 600;
     }
 
     .summary {
@@ -55,22 +65,20 @@
 
 .review-columns {
     display: flex;
-    gap: 24px;
+    gap: 16px;
+    /* smaller space between columns */
     justify-content: flex-start;
+    /* align the whole group to the left */
     margin-bottom: 0;
 }
 
 .review-col {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    min-width: 160px;
-}
-
-.counter {
-    margin-top: 8px;
-    color: #444;
-    font-size: 1.15rem;
-    font-weight: 400;
-    text-align: center;
+    align-items: flex-start;
+    /* align each column's contents to the left edge */
+    text-align: left;
+    padding: 0px;
+    /* allow columns to size to their content */
+    min-width: 0;
 }
