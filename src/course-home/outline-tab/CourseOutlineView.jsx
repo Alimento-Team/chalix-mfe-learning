@@ -217,6 +217,30 @@ const CourseOutlineView = () => {
           // no-op; defensive
         }
 
+        // 4) Enrich from Chalix course config (same source used by Authoring)
+        // This provides: instructor, estimated_hours, online_course_link
+        try {
+          const http = getAuthenticatedHttpClient();
+          const studioBase = getConfig().STUDIO_BASE_URL || window.location.origin;
+          const encoded = encodeURIComponent(courseId);
+          const chalixUrl = `${studioBase}/api/chalix/dashboard/course-detail/${encoded}/`;
+          const resp = await http.get(chalixUrl);
+          const cfg = resp?.data || {};
+          if (!data.course_info) data.course_info = {};
+          if (cfg.instructor) {
+            data.course_info.instructor_name = cfg.instructor;
+          }
+          if (typeof cfg.estimated_hours !== 'undefined' && cfg.estimated_hours !== null) {
+            data.course_info.estimated_hours = Number(cfg.estimated_hours);
+          }
+          if (cfg.online_course_link) {
+            // Authoritative meeting link from Chalix config
+            data.course_info.meeting_url = cfg.online_course_link;
+          }
+        } catch (e) {
+          // Soft-fail: fall back to earlier data if Chalix config not available
+        }
+
         setCourseData(data);
         setError(null);
       } catch (err) {
@@ -250,6 +274,24 @@ const CourseOutlineView = () => {
 
   const selectedUnit = useMemo(() => allUnits[selectedUnitIndex] || null, [allUnits, selectedUnitIndex]);
   const selectedUnitId = selectedUnit?.id;
+
+  // Make courseInfo/modules available as stable references for hooks used below.
+  // These use optional chaining so they are safe to evaluate even when courseData is null.
+  const modules = courseData?.modules || [];
+  const courseInfo = courseData?.course_info || {};
+
+  // Compute a reliable topics/modules count: prefer explicit modules array length,
+  // but fall back to counting unique section titles found in flattened allUnits.
+  // This is a hook and must run on every render (unconditional) to preserve hook order.
+  const topicsCount = useMemo(() => {
+    if (modules && Array.isArray(modules) && modules.length > 0) return modules.length;
+    const set = new Set();
+    allUnits.forEach((u) => {
+      if (u.sectionTitle) set.add(u.sectionTitle);
+      else if (u.sectionId) set.add(u.sectionId);
+    });
+    return set.size || 0;
+  }, [modules, allUnits]);
 
   // Fetch real content when selectedUnit changes
   // This must be before any early returns to avoid hook order errors
@@ -420,62 +462,12 @@ const CourseOutlineView = () => {
     );
   }
 
-  const { course_info: courseInfo, modules } = courseData;
+  // Use the previously-declared `courseInfo` and `modules` variables which
+  // are safe to reference even when `courseData` is null.
 
-  // Show loading state
-  // All hooks above! Now safe to return early if needed
-  if (loading) {
-    return (
-      <div className="course-learning-view">
-        <div className="course-overview-section">
-          <div className="course-overview-card">
-            <div className="course-overview-content">
-              <h1 className="course-title-main">
-                Đang tải khóa học...
-              </h1>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Show error state
-  if (error) {
-    return (
-      <div className="course-learning-view">
-        <div className="course-overview-section">
-          <div className="course-overview-card">
-            <div className="course-overview-content">
-              <h1 className="course-title-main">
-                Lỗi tải khóa học
-              </h1>
-              <p className="instructor-info">
-                {error}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // No course data
-  if (!courseData || !courseData.modules) {
-    return (
-      <div className="course-learning-view">
-        <div className="course-overview-section">
-          <div className="course-overview-card">
-            <div className="course-overview-content">
-              <h1 className="course-title-main">
-                Không tìm thấy nội dung khóa học
-              </h1>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // NOTE: loading/error/no-data early returns exist further down (render block).
+  // topicsCount and courseInfo/modules are intentionally computed above so hooks
+  // are executed unconditionally and hook ordering remains stable across renders.
 
   const realContent = {
     video: videoList,
@@ -502,77 +494,14 @@ const CourseOutlineView = () => {
             <p className="instructor-info">
               Giảng viên: {courseInfo.instructor_name}
             </p>
+            {Number.isFinite(courseInfo?.estimated_hours) && courseInfo.estimated_hours > 0 && (
+              <p className="estimated-hours">Thời lượng dự kiến: {courseInfo.estimated_hours} giờ</p>
+            )}
             {courseInfo.meeting_url && (
               <p className="meeting-url">
                 <a href={courseInfo.meeting_url} target="_blank" rel="noopener noreferrer">Tham gia buổi học trực tuyến</a>
               </p>
             )}
-            {/* Dev-only debug toggle */}
-            {process.env.NODE_ENV !== 'production' && (
-              <div style={{ position: 'absolute', top: 8, right: 12 }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = !debugEnabled;
-                    setDebugEnabled(next);
-                    // If enabling, dump computed styles after a short delay to allow layout to settle
-                    if (next) {
-                      setTimeout(() => {
-                        try {
-                          const dump = (el) => {
-                            if (!el) return null;
-                            const cs = window.getComputedStyle(el);
-                            const rect = el.getBoundingClientRect();
-                            return {
-                              display: cs.display,
-                              flexDirection: cs.flexDirection || cs.flex_direction,
-                              gridTemplateColumns: cs.gridTemplateColumns || cs.grid_template_columns,
-                              order: cs.order,
-                              float: cs.cssFloat || cs.float,
-                              position: cs.position,
-                              width: cs.width,
-                              height: cs.height,
-                              rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
-                            };
-                          };
-                          console.group('CourseOutlineView - focused layout debug');
-                          const c = dump(layoutRef.current);
-                          const l = dump(leftPanelRef.current);
-                          const r = dump(rightPanelRef.current);
-                          console.log('container ->', c);
-                          console.log('left panel ->', l);
-                          console.log('right panel ->', r);
-                          try {
-                            console.log('container JSON ->', JSON.stringify(c));
-                            console.log('left panel JSON ->', JSON.stringify(l));
-                            console.log('right panel JSON ->', JSON.stringify(r));
-                          } catch (e) {
-                            // ignore stringify errors
-                          }
-                          console.groupEnd();
-                        } catch (e) {
-                          console.error('Error dumping computed styles', e);
-                        }
-                      }, 120);
-                    }
-                  }}
-                  style={{ padding: '6px 8px', fontSize: 12 }}
-                >
-                  {debugEnabled ? 'Disable debug' : 'Enable debug'}
-                </button>
-              </div>
-            )}
-            <div className="course-progress-info">
-              <p className="total-hours">
-                Tổng số chuyên đề: {modules?.length || 0}
-              </p>
-              <div className="progress-container">
-                <ProgressBar
-                  now={courseInfo.progress_percentage}
-                  className="course-progress-bar"
-                />
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -600,13 +529,6 @@ const CourseOutlineView = () => {
                   role="button"
                   tabIndex={0}
                 >
-                  <div className="module-icon">
-                    <MenuIcon />
-                  </div>
-                  <div className="module-info">
-                    <div className="module-title">{module.title}</div>
-                    <div className="module-subtitle">Thuộc: {courseInfo.title}</div>
-                  </div>
                 </div>
                 {/* Nested unit list (read-only) */}
                 {module.units && module.units.length > 0 && (
@@ -626,10 +548,9 @@ const CourseOutlineView = () => {
                             <div className="section-card__menu">
                               <MenuIcon />
                             </div>
-                            <div className="section-card__title-group">
-                              <div className="section-card__title">{unit.title}</div>
-                              <div className="section-card__subtitle">Thuộc: {module.title}</div>
-                            </div>
+                              <div className="section-card__title-group">
+                                <div className="section-card__title">{unit.title}</div>
+                              </div>
                           </div>
                         </div>
                       );
@@ -748,10 +669,7 @@ const CourseOutlineView = () => {
           )}
         </div>
       </div>
-      {/* Course level review footer (centered) */}
-      <div className="course-review-footer">
-        <ReviewWidget courseId={courseId} />
-      </div>
+      {/* Course level review footer removed — use topic-level review inside right panel */}
     </div>
   );
 };

@@ -90,16 +90,16 @@ const MediaListModal = ({
         )}
         {!loading && !error && (items || []).map((item) => (
           <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f5f5f5', borderRadius: 6, padding: '10px 16px', marginBottom: 10 }}>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <div style={{ fontWeight: 500 }}>{item.title || item.displayName || item.fileName || 'Tệp'}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title || item.displayName || item.fileName || 'Tệp'}</div>
               {/* Optional metadata shown if available */}
-              <div style={{ fontSize: 12, color: '#666' }}>
+              <div style={{ fontSize: 12, color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {item.fileType ? `Loại: ${item.fileType}` : ''}
                 {item.size || item.fileSize ? ` • Kích thước: ${item.size || item.fileSize}B` : ''}
               </div>
             </div>
             <button
-              style={{ background: '#0070d2', color: '#fff', border: 'none', borderRadius: 4, padding: '6px 14px', fontWeight: 600, fontSize: 14, cursor: 'pointer' }}
+              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap', minWidth: 120, background: '#0070d2', color: '#fff', border: 'none', borderRadius: 4, padding: '6px 14px', fontWeight: 600, fontSize: 14, cursor: 'pointer', flexShrink: 0 }}
               onClick={() => {
                 const normalized = { ...item, type: mediaType };
                 if (mediaType === 'video') {
