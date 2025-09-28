@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import classNames from 'classnames';
-import { ProgressBar, IconButton } from '@openedx/paragon';
+import { ProgressBar, IconButton, AlertModal } from '@openedx/paragon';
 import {
   MenuIcon,
   Favorite as HeartIcon,
@@ -10,27 +10,214 @@ import {
   HelpOutline as QuestionIcon,
 } from '@openedx/paragon/icons';
 
-import { useModel } from '../../generic/model-store';
 import { getConfig } from '@edx/frontend-platform';
 import { getAuthenticatedHttpClient } from '@edx/frontend-platform/auth';
 import './CourseOutlineView.scss';
+import ReviewWidget from './widgets/ReviewWidget';
+import { getOutlineTabData, getCourseHomeCourseMetadata } from '../data/api';
+import { 
+  getUnitMedia, 
+  getUnitVerticalData, 
+  getVerticalData,
+  getCourseVerticalChildren,
+  isUnitBlock, 
+  isSequentialBlock, 
+  getSequentialChildren,
+  getCourseAggregate,
+} from './data/unitContentApi';
+import MediaListModal from './components/MediaListModal';
+import QuizRenderer from './components/QuizRenderer';
+
 
 const CourseOutlineView = () => {
+  // All hooks must be at the top level, before any conditional returns
   const { courseId } = useSelector(state => state.courseHome);
   const [selectedModuleIndex, setSelectedModuleIndex] = useState(0);
   const [courseData, setCourseData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [debugEnabled, setDebugEnabled] = useState(false);
+  const layoutRef = useRef(null);
+  const leftPanelRef = useRef(null);
+  const rightPanelRef = useRef(null);
+  // Selected unit index and object (must be at top level for React hooks)
+  const [selectedUnitIndex, setSelectedUnitIndex] = useState(0);
+  // For modal content selection (video/slide/quiz)
+  const [modalType, setModalType] = useState(null); // 'video' | 'slide' | 'questions' | null
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedContent, setSelectedContent] = useState(null); // { type, id, title, url }
+  const [showQuizListInline, setShowQuizListInline] = useState(false);
+  // State for real content lists (must be before any logic)
+  const [videoList, setVideoList] = useState([]);
+  const [slideList, setSlideList] = useState([]);
+  const [quizList, setQuizList] = useState([]);
 
-  // Fetch simplified course data from the new API
+  // Fetch course data preferring the LMS aggregate endpoint, with fallbacks
   useEffect(() => {
     const fetchCourseData = async () => {
       try {
         setLoading(true);
-        const response = await getAuthenticatedHttpClient().get(
-          `${getConfig().LMS_BASE_URL}/api/course_home/simplified_outline/${courseId}`
-        );
-        setCourseData(response.data);
+        let data = null;
+
+        // 1) Try new LMS aggregate endpoint
+        try {
+          const agg = await getCourseAggregate(courseId);
+          // Map aggregate payload to UI-friendly structure used below
+          const modules = (agg.topics || []).map(section => ({
+            id: section.id,
+            title: section.displayName || section.title || 'Chuyên đề',
+            units_count: (section.subsections || []).reduce((acc, ss) => acc + (ss.units?.length || 0), 0),
+            complete: false,
+            units: (section.subsections || []).flatMap(ss => (ss.units || []).map(u => ({
+              id: u.id,
+              title: u.displayName || u.title || 'Nội dung học tập',
+              // Decide a representative type for the unit for iconography
+              content_type: (u.videos?.length ? 'video' : (u.slides?.length ? 'slide' : ((u.quizzes?.length ? 'questions' : 'vertical')))),
+              content_metadata: { subtitle: (ss.displayName || ss.title) ? `Thuộc: ${ss.displayName || ss.title}` : 'Nội dung học tập' },
+              complete: false,
+            }))),
+          }));
+
+          data = {
+            course_info: {
+              title: agg?.details?.displayName || courseId,
+              instructor_name: agg?.details?.org || 'Course Instructor',
+              total_units: modules.reduce((acc, m) => acc + m.units_count, 0),
+              completed_units: modules.reduce((acc, m) => acc + (m.complete ? m.units_count : 0), 0),
+              progress_percentage: 0,
+              meeting_url: agg?.config?.marketing_url || agg?.config?.social_sharing_url || null,
+            },
+            modules,
+          };
+        } catch (e) {
+          // Ignore and try next fallback
+        }
+
+        // 2) Fallback to simplified_outline endpoint
+        if (!data) {
+          const response = await getAuthenticatedHttpClient().get(
+            `${getConfig().LMS_BASE_URL}/api/course_home/simplified_outline/${courseId}`
+          );
+          data = response.data;
+        }
+
+        // 3) Fallback: if modules are missing/undefined, derive a minimal structure from the legacy outline API
+        if (!data || !Array.isArray(data.modules)) {
+          try {
+            const [outline, meta] = await Promise.all([
+              getOutlineTabData(courseId),
+              getCourseHomeCourseMetadata(courseId, 'outline'),
+            ]);
+
+            const { courses = {}, sections = {}, sequences = {} } = outline?.courseBlocks || {};
+            const rootCourseId = courses && Object.keys(courses)[0];
+            const sectionIds = rootCourseId ? courses[rootCourseId].sectionIds || [] : [];
+            const modules = sectionIds
+              .map(id => sections[id])
+              .filter(Boolean)
+              .map(section => {
+                const unitList = (section.sequenceIds || [])
+                  .map(seqId => sequences[seqId])
+                  .filter(Boolean)
+                  .map(seq => {
+                    const t = (seq.title || '').toLowerCase();
+                    let content_type = 'vertical';
+                    if (/kiểm tra|quiz|test|exam/.test(t)) content_type = 'questions';
+                    else if (/slide|slides|presentation|trình chiếu|bản trình/.test(t)) content_type = 'slide';
+                    // Only assign 'vertical', 'questions', or 'slide' (never default to 'video')
+                    return {
+                      id: seq.id,
+                      title: seq.title,
+                      content_type,
+                      content_metadata: { subtitle: seq.description || 'Nội dung học tập' },
+                      complete: !!seq.complete,
+                    };
+                  });
+                return {
+                  id: section.id,
+                  title: section.title,
+                  units_count: unitList.length,
+                  complete: !!section.complete,
+                  units: unitList,
+                };
+              });
+
+            // If course has no explicit sections (or only a single module) but has many sequences,
+            // derive modules directly from sequences so the left panel shows each topic separately.
+            if ((!modules || modules.length <= 1) && sequences && Object.keys(sequences).length > 0) {
+              const seqModules = Object.values(sequences)
+                .filter(Boolean)
+                .map(seq => ({
+                  id: seq.id,
+                  title: seq.title || 'Chuyên đề',
+                  units_count: 1,
+                  complete: !!seq.complete,
+                  units: [{
+                    id: seq.id,
+                    title: seq.display_name || seq.title || 'Nội dung học tập',
+                    content_type: (() => {
+                      const t = ((seq.title || '') + '').toLowerCase();
+                      if (/kiểm tra|quiz|test|exam/.test(t)) return 'questions';
+                      if (/slide|slides|presentation|trình chiếu|bản trình/.test(t)) return 'slide';
+                      return 'video';
+                    })(),
+                    content_metadata: { subtitle: seq.description || 'Nội dung học tập' },
+                    complete: !!seq.complete,
+                  }],
+                }));
+              // prefer section-derived modules if they have more than one, otherwise use sequence modules
+              if (seqModules.length > 1 && (!modules || modules.length <= 1)) {
+                data = {
+                  course_info: data.course_info,
+                  modules: seqModules,
+                };
+              }
+            }
+
+            data = {
+              course_info: {
+                title: meta?.title || courseId,
+                instructor_name: meta?.instructorName || 'Course Instructor',
+                total_units: modules.reduce((acc, m) => acc + m.units_count, 0),
+                completed_units: modules.reduce((acc, m) => acc + (m.complete ? m.units_count : 0), 0),
+                progress_percentage: 0,
+              },
+              modules,
+            };
+          } catch (fallbackErr) {
+            // Leave data as-is if fallback fails
+          }
+        }
+
+  // Attempt to discover a meeting URL anywhere in the returned payload (CMS-configured URL
+        // may appear under different keys depending on how the course was authored). Walk the
+        // object and pick the first http(s) URL-looking value we find.
+        const findFirstUrlInObject = (obj) => {
+          if (!obj || typeof obj !== 'object') return null;
+          const stack = [obj];
+          while (stack.length) {
+            const current = stack.pop();
+            for (const key of Object.keys(current)) {
+              const val = current[key];
+              if (typeof val === 'string' && /^https?:\/\//i.test(val)) {
+                return val;
+              }
+              if (val && typeof val === 'object') stack.push(val);
+            }
+          }
+          return null;
+        };
+
+        try {
+          const meetingUrl = findFirstUrlInObject(data) || null;
+          if (!data.course_info) data.course_info = {};
+          // prefer an explicit meeting_url value if present, otherwise use discovered URL
+          data.course_info.meeting_url = data.course_info.meeting_url || data.course_info.meetingUrl || meetingUrl;
+        } catch (e) {
+          // no-op; defensive
+        }
+
+        setCourseData(data);
         setError(null);
       } catch (err) {
         console.error('Error fetching course data:', err);
@@ -45,6 +232,112 @@ const CourseOutlineView = () => {
     }
   }, [courseId]);
 
+  // Compute allUnits and selectedUnit; memoize to keep stable references between renders
+  const allUnits = useMemo(() => {
+    if (!courseData || !Array.isArray(courseData.modules)) {
+      return [];
+    }
+    const list = [];
+    courseData.modules.forEach((module) => {
+      if (Array.isArray(module.units)) {
+        module.units.forEach((unit) => {
+          list.push({ ...unit, sectionTitle: module.title });
+        });
+      }
+    });
+    return list;
+  }, [courseData]);
+
+  const selectedUnit = useMemo(() => allUnits[selectedUnitIndex] || null, [allUnits, selectedUnitIndex]);
+  const selectedUnitId = selectedUnit?.id;
+
+  // Fetch real content when selectedUnit changes
+  // This must be before any early returns to avoid hook order errors
+  useEffect(() => {
+    if (!selectedUnitId || !selectedUnit) {
+      setVideoList([]);
+      setSlideList([]);
+      setQuizList([]);
+      return;
+    }
+    
+    // Handle sequential blocks by getting their vertical children first
+    if (isSequentialBlock(selectedUnit)) {
+      console.log('Selected unit is a sequential, fetching children:', selectedUnitId);
+  getSequentialChildren(selectedUnitId, { debug: debugEnabled }).then(verticals => {
+        console.log('Found verticals in sequential:', verticals);
+        
+        // If we have verticals, try to get content from the first one
+        if (verticals && verticals.length > 0) {
+          const firstVertical = verticals[0];
+          
+          // Fetch videos from the first vertical
+          getUnitMedia(firstVertical.id, 'video').then(res => {
+            setVideoList(Array.isArray(res) ? res : res.results || []);
+          }).catch(() => setVideoList([]));
+          
+          // Fetch slides from the first vertical
+          getUnitMedia(firstVertical.id, 'slide').then(res => {
+            setSlideList(Array.isArray(res) ? res : res.results || []);
+          }).catch(() => setSlideList([]));
+          
+          // Fetch quiz/problem blocks from the first vertical
+          getUnitVerticalData(firstVertical.id, { debug: debugEnabled }).then(res => {
+            const children = res?.xblockInfo?.children || [];
+            const quizzes = children.filter(
+              c => c.category === 'problem' || c.category === 'quiz' || c.category === 'questions'
+            ).map(q => ({
+              id: q.id,
+              title: q.displayName || 'Quiz',
+              url: null, // Could be a link to a quiz player or modal
+            }));
+            setQuizList(quizzes);
+          }).catch(() => setQuizList([]));
+        } else {
+          // No verticals found, clear content
+          setVideoList([]);
+          setSlideList([]);
+          setQuizList([]);
+        }
+      }).catch(() => {
+        setVideoList([]);
+        setSlideList([]);
+        setQuizList([]);
+      });
+    }
+    // Only fetch for vertical/unit types using isUnitBlock helper
+    else if (isUnitBlock(selectedUnit)) {
+      console.log('Selected unit is a vertical/unit, fetching content directly:', selectedUnitId);
+      
+      // Fetch videos
+      getUnitMedia(selectedUnitId, 'video').then(res => {
+        setVideoList(Array.isArray(res) ? res : res.results || []);
+      }).catch(() => setVideoList([]));
+      // Fetch slides
+      getUnitMedia(selectedUnitId, 'slide').then(res => {
+        setSlideList(Array.isArray(res) ? res : res.results || []);
+      }).catch(() => setSlideList([]));
+      // Fetch quiz/problem blocks
+  getUnitVerticalData(selectedUnitId, { debug: debugEnabled }).then(res => {
+        // Find children of type 'problem' or 'quiz'
+        const children = res?.xblockInfo?.children || [];
+        const quizzes = children.filter(
+          c => c.category === 'problem' || c.category === 'quiz' || c.category === 'questions'
+        ).map(q => ({
+          id: q.id,
+          title: q.displayName || 'Quiz',
+          url: null, // Could be a link to a quiz player or modal
+        }));
+        setQuizList(quizzes);
+      }).catch(() => setQuizList([]));
+    } else {
+      console.log('Selected unit is not a valid content block:', selectedUnitId, selectedUnit.content_type);
+      setVideoList([]);
+      setSlideList([]);
+      setQuizList([]);
+    }
+  }, [selectedUnitId, debugEnabled]);
+
   // Map content type to icon
   const getContentIcon = (contentType) => {
     switch (contentType) {
@@ -53,13 +346,27 @@ const CourseOutlineView = () => {
       case 'slide':
         return BookIcon;
       case 'questions':
+      case 'quiz':
+      case 'problem':
+        return QuestionIcon;
+      case 'vertical':
+      case 'unit':
+      case 'sequential':
+        return BookIcon; // Default to book icon for structural content
+      case 'LmsVideocam':
+        return LmsVideocamIcon;
+      case 'Book':
+        return BookIcon;
+      case 'HelpOutline':
         return QuestionIcon;
       default:
-        return LmsVideocamIcon;
+        // Don't warn for common structural types, just use a default icon
+        return BookIcon;
     }
   };
 
   // Show loading state
+  // All hooks above! Now safe to return early if needed
   if (loading) {
     return (
       <div className="course-learning-view">
@@ -114,7 +421,74 @@ const CourseOutlineView = () => {
   }
 
   const { course_info: courseInfo, modules } = courseData;
-  const selectedModule = modules[selectedModuleIndex];
+
+  // Show loading state
+  // All hooks above! Now safe to return early if needed
+  if (loading) {
+    return (
+      <div className="course-learning-view">
+        <div className="course-overview-section">
+          <div className="course-overview-card">
+            <div className="course-overview-content">
+              <h1 className="course-title-main">
+                Đang tải khóa học...
+              </h1>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="course-learning-view">
+        <div className="course-overview-section">
+          <div className="course-overview-card">
+            <div className="course-overview-content">
+              <h1 className="course-title-main">
+                Lỗi tải khóa học
+              </h1>
+              <p className="instructor-info">
+                {error}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // No course data
+  if (!courseData || !courseData.modules) {
+    return (
+      <div className="course-learning-view">
+        <div className="course-overview-section">
+          <div className="course-overview-card">
+            <div className="course-overview-content">
+              <h1 className="course-title-main">
+                Không tìm thấy nội dung khóa học
+              </h1>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const realContent = {
+    video: videoList,
+    slide: slideList,
+    questions: quizList,
+  };
+
+  // Helper to get label for type
+  const typeLabel = {
+    video: 'Video bài giảng',
+    slide: 'Slide bài giảng',
+    questions: 'Trắc nghiệm',
+  };
 
   return (
     <div className="course-learning-view">
@@ -128,9 +502,69 @@ const CourseOutlineView = () => {
             <p className="instructor-info">
               Giảng viên: {courseInfo.instructor_name}
             </p>
+            {courseInfo.meeting_url && (
+              <p className="meeting-url">
+                <a href={courseInfo.meeting_url} target="_blank" rel="noopener noreferrer">Tham gia buổi học trực tuyến</a>
+              </p>
+            )}
+            {/* Dev-only debug toggle */}
+            {process.env.NODE_ENV !== 'production' && (
+              <div style={{ position: 'absolute', top: 8, right: 12 }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = !debugEnabled;
+                    setDebugEnabled(next);
+                    // If enabling, dump computed styles after a short delay to allow layout to settle
+                    if (next) {
+                      setTimeout(() => {
+                        try {
+                          const dump = (el) => {
+                            if (!el) return null;
+                            const cs = window.getComputedStyle(el);
+                            const rect = el.getBoundingClientRect();
+                            return {
+                              display: cs.display,
+                              flexDirection: cs.flexDirection || cs.flex_direction,
+                              gridTemplateColumns: cs.gridTemplateColumns || cs.grid_template_columns,
+                              order: cs.order,
+                              float: cs.cssFloat || cs.float,
+                              position: cs.position,
+                              width: cs.width,
+                              height: cs.height,
+                              rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+                            };
+                          };
+                          console.group('CourseOutlineView - focused layout debug');
+                          const c = dump(layoutRef.current);
+                          const l = dump(leftPanelRef.current);
+                          const r = dump(rightPanelRef.current);
+                          console.log('container ->', c);
+                          console.log('left panel ->', l);
+                          console.log('right panel ->', r);
+                          try {
+                            console.log('container JSON ->', JSON.stringify(c));
+                            console.log('left panel JSON ->', JSON.stringify(l));
+                            console.log('right panel JSON ->', JSON.stringify(r));
+                          } catch (e) {
+                            // ignore stringify errors
+                          }
+                          console.groupEnd();
+                        } catch (e) {
+                          console.error('Error dumping computed styles', e);
+                        }
+                      }, 120);
+                    }
+                  }}
+                  style={{ padding: '6px 8px', fontSize: 12 }}
+                >
+                  {debugEnabled ? 'Disable debug' : 'Enable debug'}
+                </button>
+              </div>
+            )}
             <div className="course-progress-info">
               <p className="total-hours">
-                Tổng số chuyên đề: {courseInfo.total_modules}
+                Tổng số chuyên đề: {modules?.length || 0}
               </p>
               <div className="progress-container">
                 <ProgressBar
@@ -143,116 +577,180 @@ const CourseOutlineView = () => {
         </div>
       </div>
 
-      {/* Main Content Area */}
-      <div className="course-content-layout">
-        {/* Left Column - Course Modules */}
-        <div className="course-modules-panel">
-          <div className="modules-list">
-            {modules.map((module, index) => (
-              <div
-                key={module.id}
-                className={classNames('module-item', {
-                  active: index === selectedModuleIndex,
-                  completed: module.complete,
-                })}
-                onClick={() => setSelectedModuleIndex(index)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    setSelectedModuleIndex(index);
-                  }
-                }}
-                role="button"
-                tabIndex={0}
-              >
-                <div className="module-content">
+      {/* Main Content Area - Authoring style */}
+      <div
+        className="course-authoring-layout"
+        ref={layoutRef}
+        style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: '24px', ...(debugEnabled ? { outline: '3px dashed rgba(255,0,0,0.6)' } : {}) }}
+      >
+        {/* Left Panel: Modules with nested units (read-only, mirror authoring but without edit actions) */}
+        <div ref={leftPanelRef} className="authoring-section-list" style={{ gridColumn: '1 / 2', ...(debugEnabled ? { outline: '2px solid rgba(0,128,255,0.6)', background: 'rgba(0,128,255,0.02)' } : {}) }}>
+          <div className="modules-scroll">
+            {modules.map((module, mIndex) => (
+              <div key={module.id} className={classNames('module-item', { active: module.id === selectedUnit?.sectionId })}>
+                <div
+                  className="module-content"
+                  onClick={() => {
+                    // If module has units, select first unit when module clicked
+                    if (module.units && module.units.length > 0) {
+                      const globalIndex = allUnits.findIndex(u => u.id === module.units[0].id);
+                      if (globalIndex >= 0) setSelectedUnitIndex(globalIndex);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                >
                   <div className="module-icon">
                     <MenuIcon />
                   </div>
                   <div className="module-info">
-                    <h3 className="module-title">
-                      {module.title}
-                    </h3>
-                    <p className="module-subtitle">
-                      {module.units_count} Nội dung
-                    </p>
+                    <div className="module-title">{module.title}</div>
+                    <div className="module-subtitle">Thuộc: {courseInfo.title}</div>
                   </div>
                 </div>
+                {/* Nested unit list (read-only) */}
+                {module.units && module.units.length > 0 && (
+                  <div className="module-units-list" style={{ padding: '8px 12px 14px' }}>
+                    {module.units.map((unit) => {
+                      const index = allUnits.findIndex(u => u.id === unit.id);
+                      return (
+                        <div
+                          key={unit.id}
+                          className={classNames('section-card', { active: index === selectedUnitIndex })}
+                          onClick={() => setSelectedUnitIndex(index)}
+                          role="button"
+                          tabIndex={0}
+                          style={{ height: '56px', margin: '6px 0' }}
+                        >
+                          <div className="section-card__header">
+                            <div className="section-card__menu">
+                              <MenuIcon />
+                            </div>
+                            <div className="section-card__title-group">
+                              <div className="section-card__title">{unit.title}</div>
+                              <div className="section-card__subtitle">Thuộc: {module.title}</div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             ))}
           </div>
         </div>
 
-        {/* Right Column - Module Details with Units */}
-        <div className="module-details-panel">
-          {selectedModule && (
+        {/* Right Panel: Content for Selected Unit */}
+        <div ref={rightPanelRef} className="authoring-content-list" style={{ gridColumn: '2 / 3', ...(debugEnabled ? { outline: '2px solid rgba(0,192,0,0.6)', background: 'rgba(0,192,0,0.02)' } : {}) }}>
+          {selectedUnit ? (
             <>
-              {/* Module Header */}
-              <div className="module-header">
-                <div className="module-header-content">
-                  <div className="module-icon-large">
-                    <MenuIcon />
+              <div className="content-scroll">
+                <div className="unit-card">
+                  <div className="unit-card__icon">
+                    {(() => {
+                      const UnitIcon = getContentIcon(selectedUnit.content_type);
+                      return <UnitIcon />;
+                    })()}
                   </div>
-                  <div className="module-header-info">
-                    <h2 className="module-detail-title">
-                      {selectedModule.title}
-                    </h2>
-                    <p className="module-content-count">
-                      {selectedModule.units_count} Nội dung
-                    </p>
-                  </div>
-                  <div className="module-actions">
-                    <IconButton
-                      src={HeartIcon}
-                      iconAs={HeartIcon}
-                      alt="Favorite"
-                      className="favorite-button"
-                    />
+                  <div className="unit-card__info">
+                    <div className="unit-card__title"><b>{selectedUnit.title}</b></div>
+                    <div className="unit-card__subtitle">{selectedUnit.content_metadata?.subtitle || 'Nội dung học tập'}</div>
                   </div>
                 </div>
-              </div>
-
-              {/* Units List */}
-              <div className="content-list">
-                {selectedModule.units && selectedModule.units.length > 0 ? (
-                  selectedModule.units.map((unit) => {
-                    const UnitIcon = getContentIcon(unit.content_type);
-                    
-                    return (
-                      <div key={unit.id} className="content-item">
-                        <div className="content-item-inner">
-                          <div className="content-icon">
-                            <UnitIcon />
-                          </div>
-                          <div className="content-info">
-                            <h4 className="content-title">
-                              <span className="content-type-label">{unit.title}</span>
-                            </h4>
-                            <p className="content-subtitle">
-                              {unit.content_metadata?.subtitle || 'Nội dung học tập'}
-                            </p>
-                          </div>
+                {/* Cards for each content type */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 24 }}>
+                  {['video', 'slide', 'questions'].map(type => (
+                    <div key={type} style={{ background: '#f8fafd', border: '1.5px solid #b2b2b2', borderRadius: 8, padding: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        {(() => {
+                          const UnitIcon = getContentIcon(type);
+                          return <UnitIcon style={{ fontSize: 28 }} />;
+                        })()}
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{typeLabel[type]}</div>
+                          <div style={{ fontSize: 13, color: '#555' }}>{selectedUnit.title} - Bấm để xem {typeLabel[type]}</div>
                         </div>
                       </div>
-                    );
-                  })
-                ) : (
-                  <div className="content-item">
-                    <div className="content-item-inner">
-                      <div className="content-info">
-                        <h4 className="content-title">
-                          Chưa có nội dung học tập
-                        </h4>
-                        <p className="content-subtitle">
-                          Nội dung sẽ được cập nhật sớm
-                        </p>
-                      </div>
+                        <button
+                          style={{ background: '#0070d2', color: '#fff', border: 'none', borderRadius: 4, padding: '8px 18px', fontWeight: 600, fontSize: 15, cursor: 'pointer' }}
+                          onClick={() => {
+                            if (type === 'questions') {
+                              // Show inline quiz list and select first quiz if available
+                              if (quizList && quizList.length > 0) {
+                                setShowQuizListInline(true);
+                                setSelectedContent({ ...quizList[0], type: 'questions' });
+                              } else {
+                                // Fallback to modal selection when no cached quizList
+                                setModalType(type);
+                                setModalOpen(true);
+                              }
+                            } else {
+                              setShowQuizListInline(false);
+                              setModalType(type);
+                              setModalOpen(true);
+                            }
+                          }}
+                        >
+                          Xem
+                        </button>
                     </div>
-                  </div>
+                  ))}
+                </div>
+                {/* Show selected content (video, slide, quiz) if chosen */}
+                {selectedContent && selectedContent.type === 'video' && (
+                  selectedContent.videoUrl ? (
+                    <video controls style={{ width: '100%', marginTop: 24, borderRadius: 8 }} src={selectedContent.videoUrl} />
+                  ) : selectedContent.youtubeId ? (
+                    <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, marginTop: 24 }}>
+                      <iframe
+                        title={selectedContent.title || 'Video'}
+                        src={`https://www.youtube.com/embed/${selectedContent.youtubeId}`}
+                        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0, borderRadius: 8 }}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    </div>
+                  ) : null
+                )}
+                {selectedContent && selectedContent.type === 'slide' && selectedContent.fileUrl && (
+                  <iframe title={selectedContent.title} src={selectedContent.fileUrl} style={{ width: '100%', minHeight: 420, marginTop: 24, borderRadius: 8, background: '#fff' }} />
+                )}
+                {selectedContent && selectedContent.type === 'questions' && (
+                  <QuizRenderer selectedContent={selectedContent} unitId={selectedUnitId} />
                 )}
               </div>
+              {/* Media list modal – loads on demand to mirror authoring behavior */}
+              {['video', 'slide', 'questions'].includes(modalType) && (
+                <MediaListModal
+                  open={modalOpen}
+                  onClose={() => { setModalOpen(false); setModalType(null); }}
+                  unit={selectedUnit}
+                  mediaType={modalType}
+                  title={`Chọn ${typeLabel[modalType] || ''} để phát`}
+                  onSelect={(normalized) => {
+                    setSelectedContent(normalized);
+                  }}
+                />
+              )}
+              {/* Topic-level quick review for the selected unit */}
+              <div className="topic-review">
+                <ReviewWidget courseId={courseId} unitUsageKey={selectedUnit.id} />
+              </div>
             </>
+          ) : (
+            <div className="unit-card empty">
+              <div className="unit-card__info">
+                <div className="unit-card__title">Chưa có nội dung học tập</div>
+                <div className="unit-card__subtitle">Nội dung sẽ được cập nhật sớm</div>
+              </div>
+            </div>
           )}
         </div>
+      </div>
+      {/* Course level review footer (centered) */}
+      <div className="course-review-footer">
+        <ReviewWidget courseId={courseId} />
       </div>
     </div>
   );

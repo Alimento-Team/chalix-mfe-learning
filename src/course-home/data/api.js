@@ -430,6 +430,31 @@ export async function getOutlineTabData(courseId) {
   };
 }
 
+// New simplified outline for Chalix layout
+export async function getSimplifiedOutline(courseId) {
+  const url = `${getConfig().LMS_BASE_URL}/api/course_home/simplified_outline/${courseId}`;
+  const { data } = await getAuthenticatedHttpClient().get(url);
+  return camelCaseObject(data);
+}
+
+// Quick emoji reviews
+export async function postEmojiReview(courseId, rating, unitUsageKey) {
+  const url = `${getConfig().LMS_BASE_URL}/api/course_home/reviews/${courseId}`;
+  return getAuthenticatedHttpClient().post(url, {
+    rating,
+    unit_usage_key: unitUsageKey,
+  });
+}
+
+export async function getEmojiReviewSummary(courseId, unitUsageKey) {
+  let url = `${getConfig().LMS_BASE_URL}/api/course_home/reviews/${courseId}/summary`;
+  if (unitUsageKey) {
+    url += `?unit_usage_key=${encodeURIComponent(unitUsageKey)}`;
+  }
+  const { data } = await getAuthenticatedHttpClient().get(url);
+  return camelCaseObject(data);
+}
+
 export async function postCourseDeadlines(courseId, model) {
   const url = new URL(`${getConfig().LMS_BASE_URL}/api/course_experience/v1/reset_course_deadlines`);
   return getAuthenticatedHttpClient().post(url.href, {
