@@ -8,4 +8,10 @@ config.resolve.alias = {
   '@src': path.resolve(__dirname, 'src'),
 };
 
+config.resolve.modules = [
+  path.resolve(__dirname, './src'),
+  path.resolve(__dirname, './node_modules'),
+  'node_modules',
+];
+
 module.exports = config;

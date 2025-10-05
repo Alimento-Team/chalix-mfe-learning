@@ -252,6 +252,36 @@
                 line-height: normal;
             }
 
+            /* Labels used in the two-column details grid */
+            .course-detail-label {
+                min-width: 180px;
+                color: #333;
+                font-weight: 600;
+                text-align: left;
+            }
+
+            .meeting-link-button {
+                display: inline-block;
+                background: #e6f4fb;
+                /* very light blue */
+                color: #0070d2;
+                /* brand blue */
+                font-weight: 600;
+                padding: 8px 14px;
+                border-radius: 20px;
+                text-decoration: none;
+                border: 1px solid rgba(0, 112, 210, 0.12);
+                transition: background 0.12s ease, transform 0.08s ease;
+                cursor: pointer;
+            }
+
+            .meeting-link-button:hover,
+            .meeting-link-button:focus {
+                background: #d6eefb;
+                transform: translateY(-1px);
+                outline: none;
+            }
+
             .meeting-url {
                 margin: 4px 0 0;
 

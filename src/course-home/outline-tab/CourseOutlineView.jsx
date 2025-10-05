@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { isCourseStarted } from '../../utils/courseStatus';
 import { useSelector } from 'react-redux';
 import classNames from 'classnames';
 import { ProgressBar, IconButton, AlertModal } from '@openedx/paragon';
@@ -12,6 +13,7 @@ import {
 
 import { getConfig } from '@edx/frontend-platform';
 import { getAuthenticatedHttpClient } from '@edx/frontend-platform/auth';
+import urls from '../../data/services/lms/urls';
 import './CourseOutlineView.scss';
 import ReviewWidget from './widgets/ReviewWidget';
 import { getOutlineTabData, getCourseHomeCourseMetadata } from '../data/api';
@@ -27,6 +29,7 @@ import {
 } from './data/unitContentApi';
 import MediaListModal from './components/MediaListModal';
 import QuizRenderer from './components/QuizRenderer';
+import FileViewer from './components/FileViewer';
 
 
 const CourseOutlineView = () => {
@@ -86,6 +89,7 @@ const CourseOutlineView = () => {
               completed_units: modules.reduce((acc, m) => acc + (m.complete ? m.units_count : 0), 0),
               progress_percentage: 0,
               meeting_url: agg?.config?.marketing_url || agg?.config?.social_sharing_url || null,
+              start: agg?.details?.start_date || agg?.details?.start || null,
             },
             modules,
           };
@@ -181,6 +185,7 @@ const CourseOutlineView = () => {
                 total_units: modules.reduce((acc, m) => acc + m.units_count, 0),
                 completed_units: modules.reduce((acc, m) => acc + (m.complete ? m.units_count : 0), 0),
                 progress_percentage: 0,
+                start: meta?.start_date || meta?.start || null,
               },
               modules,
             };
@@ -221,15 +226,16 @@ const CourseOutlineView = () => {
         // This provides: instructor, estimated_hours, online_course_link
         try {
           const http = getAuthenticatedHttpClient();
-          const studioBase = getConfig().STUDIO_BASE_URL || window.location.origin;
-          const encoded = encodeURIComponent(courseId);
-          const chalixUrl = `${studioBase}/api/chalix/dashboard/course-detail/${encoded}/`;
-          const resp = await http.get(chalixUrl);
+          const chalixUrl = urls.courseDetail(courseId);
+          const resp = await http.get(chalixUrl, { withCredentials: true, headers: { 'USE-JWT-COOKIE': 'true' } });
           const cfg = resp?.data || {};
           if (!data.course_info) data.course_info = {};
           if (cfg.instructor) {
             data.course_info.instructor_name = cfg.instructor;
           }
+          if (cfg.subtitle) data.course_info.subtitle = cfg.subtitle;
+          if (cfg.duration) data.course_info.duration = cfg.duration;
+          if (cfg.description) data.course_info.description = cfg.description;
           if (typeof cfg.estimated_hours !== 'undefined' && cfg.estimated_hours !== null) {
             data.course_info.estimated_hours = Number(cfg.estimated_hours);
           }
@@ -237,6 +243,22 @@ const CourseOutlineView = () => {
             // Authoritative meeting link from Chalix config
             data.course_info.meeting_url = cfg.online_course_link;
           }
+          // Add additional Chalix course-detail fields into course_info for the
+          // learning UI to render: short description, course code/key, type, level,
+          // and required passing grade.
+          if (cfg.short_description) data.course_info.short_description = cfg.short_description;
+          if (cfg.course_code) data.course_info.course_code = cfg.course_code;
+          if (cfg.course_key) data.course_info.course_key = cfg.course_key;
+          if (cfg.course_type) data.course_info.course_type = cfg.course_type;
+          if (cfg.course_level) data.course_info.course_level = cfg.course_level;
+          if (typeof cfg.required_grade !== 'undefined' && cfg.required_grade !== null) {
+            // store as percentage integer when possible
+            const rg = Number(cfg.required_grade);
+            data.course_info.required_grade = Number.isFinite(rg) ? rg : cfg.required_grade;
+          }
+          // Ensure start date is propagated into the UI-friendly `course_info.start` field.
+          // The backend now returns canonical `start_date`; fall back to legacy `start` if present.
+          data.course_info.start = data.course_info.start || cfg.start_date || cfg.start || null;
         } catch (e) {
           // Soft-fail: fall back to earlier data if Chalix config not available
         }
@@ -279,6 +301,22 @@ const CourseOutlineView = () => {
   // These use optional chaining so they are safe to evaluate even when courseData is null.
   const modules = courseData?.modules || [];
   const courseInfo = courseData?.course_info || {};
+
+  // Helper to format a course date value to "Ngày DD - Tháng mm - Năm YYYY".
+  // Accepts Date objects, ISO strings, or timestamps. Returns 'Chưa đặt' when falsy.
+  const formatCourseDate = (dateVal) => {
+    if (!dateVal) return 'Chưa đặt';
+    try {
+      const d = (typeof dateVal === 'string' || typeof dateVal === 'number') ? new Date(dateVal) : dateVal;
+      if (!(d instanceof Date) || Number.isNaN(d.getTime())) return String(dateVal);
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      return `Ngày ${dd} - Tháng ${mm} - Năm ${yyyy}`;
+    } catch (e) {
+      return String(dateVal);
+    }
+  };
 
   // Compute a reliable topics/modules count: prefer explicit modules array length,
   // but fall back to counting unique section titles found in flattened allUnits.
@@ -491,17 +529,82 @@ const CourseOutlineView = () => {
             <h1 className="course-title-main">
               {courseInfo.title}
             </h1>
-            <p className="instructor-info">
-              Giảng viên: {courseInfo.instructor_name}
-            </p>
-            {Number.isFinite(courseInfo?.estimated_hours) && courseInfo.estimated_hours > 0 && (
-              <p className="estimated-hours">Thời lượng dự kiến: {courseInfo.estimated_hours} giờ</p>
-            )}
-            {courseInfo.meeting_url && (
-              <p className="meeting-url">
-                <a href={courseInfo.meeting_url} target="_blank" rel="noopener noreferrer">Tham gia buổi học trực tuyến</a>
-              </p>
-            )}
+            {/* Two-column details grid matching the desired layout (no action buttons) */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 32px', marginTop: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, textAlign: 'left' }}>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <div style={{ minWidth: 180, color: '#333', fontWeight: 600, textAlign: 'left' }}>Giảng viên:</div>
+                  <div style={{ color: '#444' }}>{courseInfo.instructor_name || 'Chưa đặt'}</div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <div style={{ minWidth: 180, color: '#333', fontWeight: 600, textAlign: 'left' }}>Thời lượng dự kiến:</div>
+                  <div style={{ color: '#444' }}>{courseInfo.duration || (Number.isFinite(courseInfo?.estimated_hours) ? `${courseInfo.estimated_hours} giờ` : 'Chưa đặt')}</div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <div style={{ minWidth: 180, color: '#333', fontWeight: 600, textAlign: 'left' }}>Loại khoá học:</div>
+                  <div style={{ color: '#444' }}>{courseInfo.course_type || 'Chưa đặt'}</div>
+                </div>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <div style={{ minWidth: 180, color: '#333', fontWeight: 600 }}>Mô tả ngắn:</div>
+                  <div style={{ color: '#444' }}>{courseInfo.short_description || 'Chưa có'}</div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <div style={{ minWidth: 160, color: '#333', fontWeight: 600, textAlign: 'left' }}>Trình độ:</div>
+                  <div style={{ color: '#444' }}>{courseInfo.course_level || 'Chưa đặt'}</div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <div style={{ minWidth: 160, color: '#333', fontWeight: 600, textAlign: 'left' }}>Ngày bắt đầu:</div>
+                  <div style={{ color: '#444' }}>{formatCourseDate(courseInfo.start || courseInfo.start_date || null)}</div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <div style={{ minWidth: 160, color: '#333', fontWeight: 600, textAlign: 'left' }}>Ngày kết thúc:</div>
+                  <div style={{ color: '#444' }}>{courseInfo.end_date || courseInfo.end || 'Chưa đặt'}</div>
+                </div>
+
+                {/* Placeholder for spacing to align with left column */}
+                <div />
+              </div>
+            </div>
+
+            {/* Status badge and meeting link - centered and stacked with vertical gap */}
+            <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ marginRight: 8, fontWeight: 700, color: '#333' }}>Trạng thái Khoá học:</span>
+                <span
+                  style={{
+                    background: isCourseStarted(courseInfo) ? '#e6f4ea' : '#f5f5f5',
+                    color: isCourseStarted(courseInfo) ? '#2e7d32' : '#616161',
+                    borderRadius: '6px',
+                    padding: '6px 12px',
+                    fontWeight: 600,
+                    fontSize: '14px',
+                    display: 'inline-block',
+                  }}
+                >
+                  {isCourseStarted(courseInfo) ? 'Đã bắt đầu' : 'Chưa bắt đầu'}
+                </span>
+              </div>
+
+              <div>
+                {courseInfo.meeting_url ? (
+                  <a
+                    href={courseInfo.meeting_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="meeting-link-button"
+                  >
+                    Tham gia lớp học trực tuyến
+                  </a>
+                ) : ('-')}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -635,7 +738,11 @@ const CourseOutlineView = () => {
                   ) : null
                 )}
                 {selectedContent && selectedContent.type === 'slide' && selectedContent.fileUrl && (
-                  <iframe title={selectedContent.title} src={selectedContent.fileUrl} style={{ width: '100%', minHeight: 420, marginTop: 24, borderRadius: 8, background: '#fff' }} />
+                  // Use FileViewer which fetches the remote file as a blob and creates an object URL
+                  // so we avoid embedding an insecure HTTP resource directly into the page.
+                  <React.Suspense fallback={<div style={{ height: 420, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span>Đang chuẩn bị trình xem...</span></div>}>
+                    <FileViewer fileUrl={selectedContent.fileUrl} fileName={selectedContent.title || ''} />
+                  </React.Suspense>
                 )}
                 {selectedContent && selectedContent.type === 'questions' && (
                   <QuizRenderer selectedContent={selectedContent} unitId={selectedUnitId} />
