@@ -530,42 +530,42 @@ const CourseOutlineView = () => {
               {courseInfo.title}
             </h1>
             {/* Two-column details grid matching the desired layout (no action buttons) */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 32px', marginTop: 12 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, textAlign: 'left' }}>
-                <div style={{ display: 'flex', gap: 12 }}>
-                  <div style={{ minWidth: 180, color: '#333', fontWeight: 600, textAlign: 'left' }}>Giảng viên:</div>
-                  <div style={{ color: '#444' }}>{courseInfo.instructor_name || 'Chưa đặt'}</div>
+            <div className="course-details-grid" style={{ marginTop: 12 }}>
+              <div className="course-detail-column">
+                <div className="course-detail-row">
+                  <div className="course-detail-label">Giảng viên:</div>
+                  <div className="course-detail-value">{courseInfo.instructor_name || 'Chưa đặt'}</div>
                 </div>
 
-                <div style={{ display: 'flex', gap: 12 }}>
-                  <div style={{ minWidth: 180, color: '#333', fontWeight: 600, textAlign: 'left' }}>Thời lượng dự kiến:</div>
-                  <div style={{ color: '#444' }}>{courseInfo.duration || (Number.isFinite(courseInfo?.estimated_hours) ? `${courseInfo.estimated_hours} giờ` : 'Chưa đặt')}</div>
+                <div className="course-detail-row">
+                  <div className="course-detail-label">Thời lượng dự kiến:</div>
+                  <div className="course-detail-value">{courseInfo.duration || (Number.isFinite(courseInfo?.estimated_hours) ? `${courseInfo.estimated_hours} giờ` : 'Chưa đặt')}</div>
                 </div>
 
-                <div style={{ display: 'flex', gap: 12 }}>
-                  <div style={{ minWidth: 180, color: '#333', fontWeight: 600, textAlign: 'left' }}>Loại khoá học:</div>
-                  <div style={{ color: '#444' }}>{courseInfo.course_type || 'Chưa đặt'}</div>
+                <div className="course-detail-row">
+                  <div className="course-detail-label">Loại khoá học:</div>
+                  <div className="course-detail-value">{courseInfo.course_type || 'Chưa đặt'}</div>
                 </div>
-                <div style={{ display: 'flex', gap: 12 }}>
-                  <div style={{ minWidth: 180, color: '#333', fontWeight: 600 }}>Mô tả ngắn:</div>
-                  <div style={{ color: '#444' }}>{courseInfo.short_description || 'Chưa có'}</div>
+                <div className="course-detail-row">
+                  <div className="course-detail-label">Mô tả ngắn:</div>
+                  <div className="course-detail-value">{courseInfo.short_description || 'Chưa có'}</div>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ display: 'flex', gap: 12 }}>
-                  <div style={{ minWidth: 160, color: '#333', fontWeight: 600, textAlign: 'left' }}>Trình độ:</div>
-                  <div style={{ color: '#444' }}>{courseInfo.course_level || 'Chưa đặt'}</div>
+              <div className="course-detail-column">
+                <div className="course-detail-row">
+                  <div className="course-detail-label">Trình độ:</div>
+                  <div className="course-detail-value">{courseInfo.course_level || 'Chưa đặt'}</div>
                 </div>
 
-                <div style={{ display: 'flex', gap: 12 }}>
-                  <div style={{ minWidth: 160, color: '#333', fontWeight: 600, textAlign: 'left' }}>Ngày bắt đầu:</div>
-                  <div style={{ color: '#444' }}>{formatCourseDate(courseInfo.start || courseInfo.start_date || null)}</div>
+                <div className="course-detail-row">
+                  <div className="course-detail-label">Ngày bắt đầu:</div>
+                  <div className="course-detail-value">{formatCourseDate(courseInfo.start || courseInfo.start_date || null)}</div>
                 </div>
 
-                <div style={{ display: 'flex', gap: 12 }}>
-                  <div style={{ minWidth: 160, color: '#333', fontWeight: 600, textAlign: 'left' }}>Ngày kết thúc:</div>
-                  <div style={{ color: '#444' }}>{courseInfo.end_date || courseInfo.end || 'Chưa đặt'}</div>
+                <div className="course-detail-row">
+                  <div className="course-detail-label">Ngày kết thúc:</div>
+                  <div className="course-detail-value">{courseInfo.end_date || courseInfo.end || 'Chưa đặt'}</div>
                 </div>
 
                 {/* Placeholder for spacing to align with left column */}

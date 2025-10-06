@@ -87,6 +87,9 @@
     "jest-when": "^3.6.0",
     "rosie": "2.1.1"
   },
+  "resolutions": {
+    "entities": "^3.0.0"
+  },
   "bundlewatch": {
     "files": [
       {

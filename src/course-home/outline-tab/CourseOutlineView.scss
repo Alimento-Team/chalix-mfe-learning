@@ -756,6 +756,88 @@
     }
 }
 
+@media (max-width: 768px) {
+    .course-authoring-layout {
+        grid-template-columns: 1fr;
+        gap: 16px;
+
+        .authoring-section-list {
+            width: 100%;
+            min-height: auto;
+            max-height: 400px; // Limit height on mobile
+        }
+
+        .authoring-content-list {
+            width: 100%;
+            min-height: auto;
+        }
+    }
+
+    .course-learning-view {
+        padding: 10px;
+
+        .course-overview-section {
+            margin: 0;
+
+            .course-overview-card {
+                padding: 15px;
+
+                .course-overview-content {
+                    font-size: 14px;
+
+                    h1 {
+                        font-size: 20px;
+                    }
+                }
+            }
+        }
+    }
+}
+
+@media (max-width: 480px) {
+    .course-authoring-layout {
+        gap: 12px;
+    }
+
+    .section-card {
+        height: 80px;
+        padding: 0 4px;
+
+        .section-card__title {
+            font-size: 16px;
+        }
+
+        .section-card__subtitle {
+            font-size: 14px;
+        }
+    }
+
+    .unit-card {
+        padding: 0 12px;
+        min-height: 60px;
+
+        .unit-card__title {
+            font-size: 14px;
+        }
+
+        .unit-card__subtitle {
+            font-size: 12px;
+        }
+    }
+
+    .course-learning-view {
+        .course-overview-section {
+            .course-overview-card {
+                .course-overview-content {
+                    h1 {
+                        font-size: 18px;
+                    }
+                }
+            }
+        }
+    }
+}
+
 /* Topic-level review placement and spacing */
 .topic-review {
     margin-top: 12px;
@@ -831,4 +913,46 @@
 
 .course-learning-view .course-authoring-layout>.authoring-content-list {
     grid-column: 2 / 3 !important;
+}
+
+/* Course details grid */
+.course-details-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 32px;
+
+    @media (max-width: 768px) {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+}
+
+/* Course detail styles */
+.course-detail-column {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    text-align: left;
+}
+
+.course-detail-row {
+    display: flex;
+    gap: 12px;
+}
+
+.course-detail-label {
+    min-width: 180px;
+    color: #333;
+    font-weight: 600;
+    text-align: left;
+}
+
+.course-detail-value {
+    color: #444;
+}
+
+@media (max-width: 768px) {
+    .course-detail-label {
+        min-width: auto;
+    }
 }
