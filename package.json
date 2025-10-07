@@ -71,7 +71,7 @@
     "sass": "^1.79.3",
     "sass-loader": "^16.0.2",
     "source-map-loader": "^5.0.0",
-    "truncate-html": "^1.2.2"
+    "truncate-html": "1.0.4"
   },
   "devDependencies": {
     "@edx/reactifex": "2.2.0",
@@ -95,15 +95,5 @@
       }
     ],
     "normalizeFilenames": "^.+?(\\..+?)\\.\\w+$"
-  },
-  "overrides": {
-    "axios": "^1.7.7",
-    "bootstrap": "^5.3.0",
-    "postcss": "^8.4.31",
-    "cookie": "^0.7.0",
-    "nth-check": "^2.1.1",
-    "fast-redact": "^3.5.0",
-    "truncate-html": "^1.2.2",
-    "webpack-dev-server": "^5.1.0"
   }
 }
