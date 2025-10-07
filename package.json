@@ -15,10 +15,11 @@
     "i18n_extract": "fedx-scripts formatjs extract",
     "lint": "fedx-scripts eslint --ext .js --ext .jsx --ext .ts --ext .tsx .",
     "lint:fix": "fedx-scripts eslint --fix --ext .js --ext .jsx --ext .ts --ext .tsx .",
+    "snapshot": "fedx-scripts jest --updateSnapshot",
     "start": "fedx-scripts webpack-dev-server --progress",
     "start:with-theme": "paragon install-theme && npm start && npm install",
     "dev": "PUBLIC_PATH=/learning/ MFE_CONFIG_API_URL='http://localhost:8000/api/mfe_config/v1' fedx-scripts webpack-dev-server --progress --host apps.local.openedx.io",
-    "test": "NODE_ENV=test fedx-scripts jest --coverage --passWithNoTests",
+    "test": "fedx-scripts jest --coverage --passWithNoTests",
     "test:watch": "fedx-scripts jest --watch --passWithNoTests",
     "types": "tsc --noEmit",
     "postinstall": "npm ls entities || true"
@@ -38,17 +39,18 @@
     "@edx/browserslist-config": "1.5.0",
     "@edx/frontend-component-footer": "^14.6.0",
     "@edx/frontend-component-header": "^6.2.0",
-    "@edx/frontend-lib-learning-assistant": "^2.22.0",
-    "@edx/frontend-lib-special-exams": "^4.0.0",
-    "@edx/frontend-platform": "^8.4.0",
-    "@edx/openedx-atlas": "^0.7.0",
+    "@edx/frontend-lib-learning-assistant": "^2.20.0",
+    "@edx/frontend-lib-special-exams": "^3.5.0",
+    "@edx/frontend-platform": "^8.3.1",
+    "@edx/openedx-atlas": "^0.6.0",
+    "@edx/react-unit-test-utils": "^4.0.0",
     "@fortawesome/free-brands-svg-icons": "5.15.4",
     "@fortawesome/free-regular-svg-icons": "5.15.4",
     "@fortawesome/free-solid-svg-icons": "5.15.4",
     "@fortawesome/react-fontawesome": "^0.1.4",
     "@openedx/frontend-build": "^14.5.0",
     "@openedx/frontend-plugin-framework": "^1.7.0",
-    "@openedx/paragon": "^23.4.5",
+    "@openedx/paragon": "^22.16.0",
     "@popperjs/core": "2.11.8",
     "@reduxjs/toolkit": "1.9.7",
     "buffer": "^6.0.3",
@@ -73,7 +75,7 @@
     "sass": "^1.79.3",
     "sass-loader": "^16.0.2",
     "source-map-loader": "^5.0.0",
-    "truncate-html": "^1.1.7"
+    "truncate-html": "1.0.4"
   },
   "devDependencies": {
     "@edx/reactifex": "2.2.0",
@@ -91,15 +93,11 @@
   },
   "resolutions": {
     "entities": "2.2.0",
-    "parse5/entities": "2.2.0",
-    "**/entities": "2.2.0"
+    "parse5/entities": "2.2.0"
   },
   "overrides": {
     "entities": "2.2.0",
     "parse5": {
-      "entities": "2.2.0"
-    },
-    "**/parse5": {
       "entities": "2.2.0"
     }
   },
