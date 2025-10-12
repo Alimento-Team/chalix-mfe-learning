@@ -179,3 +179,49 @@ export async function getCoursewareOutlineSidebarToggles(courseId) {
     enable_completion_tracking: data.enable_completion_tracking || false,
   };
 }
+
+/**
+ * Get final evaluation configuration for a course
+ * @param {string} courseId - The course ID
+ * @returns {Promise<Object>} Final evaluation configuration
+ */
+export async function getFinalEvaluationConfig(courseId) {
+  const url = `${getConfig().LMS_BASE_URL}/api/course_home/v1/final_evaluation/${courseId}/config`;
+  const { data } = await getAuthenticatedHttpClient().get(url);
+  return data;
+}
+
+/**
+ * Get final evaluation quiz questions
+ * @param {string} courseId - The course ID
+ * @returns {Promise<Object>} Quiz questions and metadata
+ */
+export async function getFinalEvaluationQuiz(courseId) {
+  const url = `${getConfig().LMS_BASE_URL}/api/course_home/v1/final_evaluation/${courseId}/quiz`;
+  const { data } = await getAuthenticatedHttpClient().get(url);
+  return data;
+}
+
+/**
+ * Submit final evaluation quiz answers
+ * @param {string} courseId - The course ID
+ * @param {Object} answers - User's answers in format { questionId: [choiceIds] }
+ * @returns {Promise<Object>} Submission result with score
+ */
+export async function submitFinalEvaluationQuiz(courseId, answers) {
+  const url = `${getConfig().LMS_BASE_URL}/api/course_home/v1/final_evaluation/${courseId}/quiz/submit`;
+  const payload = { answers };
+  const { data } = await getAuthenticatedHttpClient().post(url, payload);
+  return data;
+}
+
+/**
+ * Get final evaluation quiz result
+ * @param {string} courseId - The course ID
+ * @returns {Promise<Object>} Quiz result with score and status
+ */
+export async function getFinalEvaluationResult(courseId) {
+  const url = `${getConfig().LMS_BASE_URL}/api/course_home/v1/final_evaluation/${courseId}/result`;
+  const { data } = await getAuthenticatedHttpClient().get(url);
+  return data;
+}

@@ -8,6 +8,7 @@ import {
 } from '@edx/frontend-platform/analytics';
 import { useIntl } from '@edx/frontend-platform/i18n';
 import { useSelector } from 'react-redux';
+import { Card, Button } from '@openedx/paragon';
 import SequenceExamWrapper from '@edx/frontend-lib-special-exams';
 
 import PageLoading from '@src/generic/PageLoading';
@@ -24,6 +25,8 @@ import messages from './messages';
 import HiddenAfterDue from './hidden-after-due';
 import { UnitNavigation } from './sequence-navigation';
 import SequenceContent from './SequenceContent';
+import { FinalEvaluationQuiz } from '../final-evaluation';
+import { useFinalUnitDetection } from '../final-evaluation/hooks';
 
 const Sequence = ({
   unitId,
@@ -47,6 +50,20 @@ const Sequence = ({
   const unit = useModel('units', unitId);
   const sequenceStatus = useSelector(state => state.courseware.sequenceStatus);
   const sequenceMightBeUnit = useSelector(state => state.courseware.sequenceMightBeUnit);
+  
+  // Check if this is the final unit in the course
+  const isFinalUnit = useFinalUnitDetection(sequenceId, unitId);
+
+  // Debug logging - very visible
+  console.log('🎯 SEQUENCE COMPONENT DEBUG:', {
+    sequenceId,
+    unitId,
+    isFinalUnit,
+    sequenceDisplayName: sequence?.displayName,
+    unitDisplayName: unit?.displayName,
+    unitHasLoaded,
+    timestamp: new Date().toISOString()
+  });
 
   const handleNext = () => {
     const nextIndex = sequence.unitIds.indexOf(unitId) + 1;
@@ -215,6 +232,22 @@ const Sequence = ({
           </div>
 
           <div className="unit-container flex-grow-1 pt-4">
+            {/* DEBUG: Always visible */}
+            <div style={{
+              backgroundColor: '#fff3cd', 
+              border: '1px solid #ffeaa7',
+              padding: '10px', 
+              margin: '10px 0',
+              borderRadius: '5px',
+              fontSize: '12px'
+            }}>
+              🔧 <strong>DEBUG INFO:</strong> Unit: {unitId} | Sequence: {sequenceId} | 
+              isFinalUnit: <strong style={{color: isFinalUnit ? 'green' : 'red'}}>{String(isFinalUnit)}</strong> |
+              unitHasLoaded: <strong>{String(unitHasLoaded)}</strong> |
+              Sequence Name: "{sequence?.displayName}" |
+              Unit Name: "{unit?.displayName}"
+            </div>
+            
             <SequenceContent
               courseId={courseId}
               gated={gated}
@@ -225,6 +258,26 @@ const Sequence = ({
               renderUnitNavigation={renderUnitNavigation}
             />
             {unitHasLoaded && renderUnitNavigation(false)}
+            {isFinalUnit && unitHasLoaded && (
+              <div>
+                <FinalEvaluationQuiz 
+                  courseId={courseId} 
+                  sequenceId={sequenceId} 
+                  unitId={unitId}
+                />
+                {/* Fallback for testing */}
+                <Card className="mt-4 p-4 text-center" style={{backgroundColor: '#e3f2fd'}}>
+                  <h3>📝 Kiểm tra cuối khóa</h3>
+                  <p>Bạn đã hoàn thành tất cả bài học trong khóa học này!</p>
+                  <Button variant="primary" size="lg">
+                    Bắt đầu kiểm tra
+                  </Button>
+                  <div className="mt-2">
+                    <small className="text-muted">Final Unit Detected: {isFinalUnit ? 'Yes' : 'No'}</small>
+                  </div>
+                </Card>
+              </div>
+            )}
           </div>
         </div>
         <NotificationsDiscussionsSidebarSlot courseId={courseId} />
