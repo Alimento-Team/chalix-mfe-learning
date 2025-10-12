@@ -69,6 +69,21 @@ const CertificateStatus = () => {
   let certWebViewUrl;
   const timezoneFormatArgs = userTimezone ? { timeZone: userTimezone } : {};
 
+  // Helper to format a date value to DD/MM/YYYY for consistent display
+  const formatToDDMMYYYY = (dateVal) => {
+    if (!dateVal) return '';
+    try {
+      const d = (typeof dateVal === 'string' || typeof dateVal === 'number') ? new Date(dateVal) : dateVal;
+      if (!(d instanceof Date) || Number.isNaN(d.getTime())) return String(dateVal);
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      return `${dd}/${mm}/${yyyy}`;
+    } catch (e) {
+      return String(dateVal);
+    }
+  };
+
   if (certificateData) {
     certStatus = certificateData.certStatus;
     certWebViewUrl = certificateData.certWebViewUrl;
@@ -156,8 +171,8 @@ const CertificateStatus = () => {
 
       case 'earned_but_not_available':
         certCase = 'notAvailable';
-        endDate = <FormattedDate value={end} day="numeric" month="long" year="numeric" />;
-        certAvailabilityDate = <FormattedDate value={certificateAvailableDate} day="numeric" month="long" year="numeric" />;
+        endDate = formatToDDMMYYYY(end);
+        certAvailabilityDate = formatToDDMMYYYY(certificateAvailableDate);
         body = (
           <FormattedMessage
             id="progress.certificateStatus.notAvailable.endDate"
@@ -188,12 +203,7 @@ const CertificateStatus = () => {
         if (!canViewCertificate) {
           certCase = 'notAvailable';
           // use the certificate_available_date if it is available, otherwise use the end date of the course
-          endDate = intl.formatDate((certificateAvailableDate || end), {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            ...timezoneFormatArgs,
-          });
+          endDate = formatToDDMMYYYY(certificateAvailableDate || end);
           body = intl.formatMessage(messages.notAvailableEndDateBody, { endDate });
         } else {
           certCase = null;

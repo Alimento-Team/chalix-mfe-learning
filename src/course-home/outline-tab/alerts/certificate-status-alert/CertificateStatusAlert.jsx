@@ -24,6 +24,15 @@ export const CERT_STATUS_TYPE = {
   UNVERIFIED: 'unverified',
 };
 
+const formatToDDMMYYYY = (dateVal) => {
+  if (!dateVal) return '';
+  const date = (typeof dateVal === 'string') ? new Date(dateVal) : dateVal;
+  const dd = String(date.getDate()).padStart(2, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const yyyy = date.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+};
+
 const CertificateStatusAlert = ({ payload }) => {
   const intl = useIntl();
   const dispatch = useDispatch();
@@ -58,9 +67,8 @@ const CertificateStatusAlert = ({ payload }) => {
       iconClassName: 'alert-icon text-success-500',
     };
     if (certStatus === CERT_STATUS_TYPE.EARNED_NOT_AVAILABLE) {
-      const timezoneFormatArgs = userTimezone ? { timeZone: userTimezone } : {};
-      const certificateAvailableDateFormatted = <FormattedDate value={certificateAvailableDate} day="numeric" month="long" year="numeric" />;
-      const courseEndDateFormatted = <FormattedDate value={courseEndDate} day="numeric" month="long" year="numeric" />;
+      const courseEndDateFormatted = formatToDDMMYYYY(courseEndDate);
+      const certificateAvailableDateFormatted = formatToDDMMYYYY(certificateAvailableDate);
       alertProps.header = intl.formatMessage(certMessages.certStatusEarnedNotAvailableHeader);
       alertProps.body = (
         <p>
@@ -72,7 +80,6 @@ const CertificateStatusAlert = ({ payload }) => {
               courseEndDateFormatted,
               certificateAvailableDate: certificateAvailableDateFormatted,
             }}
-            {...timezoneFormatArgs}
           />
         </p>
       );

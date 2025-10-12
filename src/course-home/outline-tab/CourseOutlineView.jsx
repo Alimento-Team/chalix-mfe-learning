@@ -302,7 +302,7 @@ const CourseOutlineView = () => {
   const modules = courseData?.modules || [];
   const courseInfo = courseData?.course_info || {};
 
-  // Helper to format a course date value to "Ngày DD - Tháng mm - Năm YYYY".
+  // Helper to format a course date value to "DD/mm/YYYY".
   // Accepts Date objects, ISO strings, or timestamps. Returns 'Chưa đặt' when falsy.
   const formatCourseDate = (dateVal) => {
     if (!dateVal) return 'Chưa đặt';
@@ -312,7 +312,7 @@ const CourseOutlineView = () => {
       const dd = String(d.getDate()).padStart(2, '0');
       const mm = String(d.getMonth() + 1).padStart(2, '0');
       const yyyy = d.getFullYear();
-      return `Ngày ${dd} - Tháng ${mm} - Năm ${yyyy}`;
+      return `${dd}/${mm}/${yyyy}`;
     } catch (e) {
       return String(dateVal);
     }
@@ -565,7 +565,7 @@ const CourseOutlineView = () => {
 
                 <div className="course-detail-row">
                   <div className="course-detail-label">Ngày kết thúc:</div>
-                  <div className="course-detail-value">{courseInfo.end_date || courseInfo.end || 'Chưa đặt'}</div>
+                  <div className="course-detail-value">{formatCourseDate(courseInfo.end_date || courseInfo.end || null)}</div>
                 </div>
 
                 {/* Placeholder for spacing to align with left column */}

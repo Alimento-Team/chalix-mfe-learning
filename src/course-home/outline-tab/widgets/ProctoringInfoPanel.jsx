@@ -28,6 +28,15 @@ const ProctoringInfoPanel = () => {
   const [readableStatus, setReadableStatus] = useState('');
   const [releaseDate, setReleaseDate] = useState(null);
 
+  const formatToDDMMYYYY = (dateVal) => {
+    if (!dateVal) return '';
+    const date = (typeof dateVal === 'string') ? new Date(dateVal) : dateVal;
+    const dd = String(date.getDate()).padStart(2, '0');
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const yyyy = date.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  };
+
   const readableStatuses = {
     notStarted: 'notStarted',
     started: 'started',
@@ -141,11 +150,7 @@ const ProctoringInfoPanel = () => {
         {intl.formatMessage(
           messages.proctoringOnboardingButtonNotOpen,
           {
-            releaseDate: intl.formatDate(releaseDate, {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-            }),
+            releaseDate: formatToDDMMYYYY(releaseDate),
           },
         )}
       </Button>

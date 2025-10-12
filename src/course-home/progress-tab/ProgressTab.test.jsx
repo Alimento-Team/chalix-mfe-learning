@@ -111,7 +111,7 @@ describe('Progress Tab', () => {
       await fetchAndRender();
       sendTrackEvent.mockClear();
 
-      const outlineTabLink = screen.getAllByRole('link', { name: 'Course outline' });
+  const outlineTabLink = screen.getAllByRole('link', { name: messages.courseOutline.defaultMessage });
       fireEvent.click(outlineTabLink[1]); // outlineTabLink[0] corresponds to the link in the DetailedGrades component
 
       expect(sendTrackEvent).toHaveBeenCalledTimes(1);
@@ -127,8 +127,8 @@ describe('Progress Tab', () => {
   describe('Course Grade', () => {
     it('renders Course Grade', async () => {
       await fetchAndRender();
-      expect(screen.getByText('Grades')).toBeInTheDocument();
-      expect(screen.getByText('This represents your weighted grade against the grade needed to pass this course.')).toBeInTheDocument();
+  expect(screen.getByText(messages.grades.defaultMessage)).toBeInTheDocument();
+  expect(screen.getByText(messages.courseGradeBody.defaultMessage)).toBeInTheDocument();
     });
 
     it('renders correct copy in CourseGradeFooter for non-passing', async () => {
@@ -160,16 +160,16 @@ describe('Progress Tab', () => {
         ],
       });
       await fetchAndRender();
-      expect(screen.queryByRole('button', { name: 'Grade range tooltip' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: messages.gradeRangeTooltipAlt.defaultMessage })).not.toBeInTheDocument();
       expect(screen.getByTestId('currentGradeTooltipContent').innerHTML).toEqual('50%');
       expect(screen.getByTestId('gradeSummaryFooterTotalWeightedGrade').innerHTML).toEqual('50%');
-      expect(screen.getByText('A weighted grade of 75% is required to pass in this course')).toBeInTheDocument();
+  expect(screen.getByText(messages.courseGradeFooterNonPassing.defaultMessage.replace('{passingGrade}', '75'))).toBeInTheDocument();
     });
 
     it('renders correct copy in CourseGradeFooter for passing with pass/fail grade range', async () => {
       await fetchAndRender();
-      expect(screen.queryByRole('button', { name: 'Grade range tooltip' })).not.toBeInTheDocument();
-      expect(screen.getByText('You’re currently passing this course')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: messages.gradeRangeTooltipAlt.defaultMessage })).not.toBeInTheDocument();
+  expect(screen.getByText(messages.courseGradeFooterGenericPassing.defaultMessage)).toBeInTheDocument();
     });
 
     it('renders correct copy and tooltip in CourseGradeFooter for non-passing with letter grade range', async () => {
@@ -195,10 +195,10 @@ describe('Progress Tab', () => {
         },
       });
       await fetchAndRender();
-      expect(screen.getByRole('button', { name: 'Grade range tooltip' }));
+  expect(screen.getByRole('button', { name: messages.gradeRangeTooltipAlt.defaultMessage }));
       expect(screen.getByTestId('currentGradeTooltipContent').innerHTML).toEqual('0%');
       expect(screen.getByTestId('gradeSummaryFooterTotalWeightedGrade').innerHTML).toEqual('0%');
-      expect(screen.getByText('A weighted grade of 80% is required to pass in this course')).toBeInTheDocument();
+  expect(screen.getByText(messages.courseGradeFooterNonPassing.defaultMessage.replace('{passingGrade}', '80'))).toBeInTheDocument();
     });
 
     it('renders correct copy and tooltip in CourseGradeFooter for passing with letter grade range', async () => {
@@ -244,10 +244,10 @@ describe('Progress Tab', () => {
         },
       });
       await fetchAndRender();
-      expect(screen.getByRole('button', { name: 'Grade range tooltip' }));
+  expect(screen.getByRole('button', { name: messages.gradeRangeTooltipAlt.defaultMessage }));
       expect(screen.getByTestId('currentGradeTooltipContent').innerHTML).toEqual('80%');
       expect(screen.getByTestId('gradeSummaryFooterTotalWeightedGrade').innerHTML).toEqual('80%');
-      expect(await screen.findByText('You’re currently passing this course with a grade of B (80-90%)')).toBeInTheDocument();
+  expect(await screen.findByText(messages.courseGradePassingWithLetterRange.defaultMessage.replace('{letter}', 'B').replace('{lowerBoundPct}', '80').replace('{upperBoundPct}', '90'))).toBeInTheDocument();
     });
 
     it('renders tooltip in CourseGradeFooter for grade range', async () => {
@@ -272,12 +272,13 @@ describe('Progress Tab', () => {
         },
       });
       await fetchAndRender();
-      const tooltip = await screen.getByRole('button', { name: 'Grade range tooltip' });
+  const tooltip = await screen.getByRole('button', { name: messages.gradeRangeTooltipAlt.defaultMessage });
       fireEvent.click(tooltip);
-      expect(screen.getByText('Grade ranges for this course:'));
-      expect(screen.getByText('A: 90%-100%'));
-      expect(screen.getByText('B: 80%-90%'));
-      expect(screen.getByText('F: <80%'));
+  expect(screen.getByText(messages.courseGradeRangeTooltip.defaultMessage));
+  // Verify grade ranges are shown using the grade_range values
+  expect(screen.getByText(`A: ${Math.round(0.9 * 100)}%-100%`));
+  expect(screen.getByText(`B: ${Math.round(0.8 * 100)}%-90%`));
+  expect(screen.getByText(`F: <${Math.round(0.8 * 100)}%`));
     });
 
     it('renders locked feature preview (CourseGradeHeader) with upgrade button when user has locked content', async () => {
@@ -317,8 +318,8 @@ describe('Progress Tab', () => {
         ],
       });
       await fetchAndRender();
-      expect(screen.getByText('locked feature')).toBeInTheDocument();
-      expect(screen.getByText('Unlock to view grades and work towards a certificate.')).toBeInTheDocument();
+  expect(screen.getByText(messages.lockedFeaturePreviewTitle.defaultMessage)).toBeInTheDocument();
+  expect(screen.getByText(messages.courseGradePreviewUnlockCertificateBody.defaultMessage)).toBeInTheDocument();
       expect(screen.getAllByRole('link', 'Unlock now')).toHaveLength(3);
     });
 
@@ -360,8 +361,8 @@ describe('Progress Tab', () => {
       });
       await fetchAndRender();
       sendTrackEvent.mockClear();
-      expect(screen.getByText('locked feature')).toBeInTheDocument();
-      expect(screen.getByText('Unlock to view grades and work towards a certificate.')).toBeInTheDocument();
+  expect(screen.getByText(messages.lockedFeaturePreviewTitle.defaultMessage)).toBeInTheDocument();
+  expect(screen.getByText(messages.courseGradePreviewUnlockCertificateBody.defaultMessage)).toBeInTheDocument();
 
       const upgradeButton = screen.getAllByRole('link', 'Unlock now')[0];
       fireEvent.click(upgradeButton);
@@ -411,13 +412,13 @@ describe('Progress Tab', () => {
         ],
       });
       await fetchAndRender();
-      expect(screen.getByText('locked feature')).toBeInTheDocument();
-      expect(screen.getByText('The deadline to upgrade in this course has passed.')).toBeInTheDocument();
+  expect(screen.getByText(messages.lockedFeaturePreviewTitle.defaultMessage)).toBeInTheDocument();
+  expect(screen.getByText(messages.courseGradePreviewUpgradeDeadlinePassedBody.defaultMessage)).toBeInTheDocument();
     });
 
     it('does not render locked feature preview when user does not have locked content', async () => {
       await fetchAndRender();
-      expect(screen.queryByText('locked feature')).not.toBeInTheDocument();
+  expect(screen.queryByText(messages.lockedFeaturePreviewTitle.defaultMessage)).not.toBeInTheDocument();
     });
 
     it('renders limited feature preview with upgrade button when user has access to some content that would typically be locked', async () => {
@@ -469,8 +470,8 @@ describe('Progress Tab', () => {
         ],
       });
       await fetchAndRender();
-      expect(screen.getByText('limited feature')).toBeInTheDocument();
-      expect(screen.getByText('Unlock to work towards a certificate.')).toBeInTheDocument();
+  expect(screen.getByText(messages.limitedFeaturePreviewTitle.defaultMessage)).toBeInTheDocument();
+  expect(screen.getByText(messages.courseGradePartialPreviewUnlockCertificateBody.defaultMessage)).toBeInTheDocument();
       expect(screen.queryAllByText(
         'You have limited access to graded assignments as part of the audit track in this course.',
         { exact: false },
@@ -546,7 +547,7 @@ describe('Progress Tab', () => {
       });
 
       await fetchAndRender();
-      expect(screen.getByText('Grades & Credit')).toBeInTheDocument();
+  expect(screen.getByText(messages.gradesAndCredit.defaultMessage)).toBeInTheDocument();
     });
 
     it('does not render ungraded subsections when SHOW_UNGRADED_ASSIGNMENT_PROGRESS is false', async () => {
@@ -658,7 +659,7 @@ describe('Progress Tab', () => {
   describe('Grade Summary', () => {
     it('renders Grade Summary table when assignment policies are populated', async () => {
       await fetchAndRender();
-      expect(screen.getByText('Grade summary')).toBeInTheDocument();
+  expect(screen.getByText(messages.gradeSummary.defaultMessage)).toBeInTheDocument();
     });
 
     it('does not render Grade Summary when assignment policies are not populated', async () => {
@@ -672,7 +673,7 @@ describe('Progress Tab', () => {
         section_scores: [],
       });
       await fetchAndRender();
-      expect(screen.queryByText('Grade summary')).not.toBeInTheDocument();
+  expect(screen.queryByText(messages.gradeSummary.defaultMessage)).not.toBeInTheDocument();
     });
 
     it('calculates grades correctly when number of droppable assignments equals total number of assignments', async () => {
@@ -693,13 +694,13 @@ describe('Progress Tab', () => {
         },
       });
       await fetchAndRender();
-      expect(screen.getByText('Grade summary')).toBeInTheDocument();
+  expect(screen.getByText(messages.gradeSummary.defaultMessage)).toBeInTheDocument();
       // The row is comprised of "{Assignment type} {footnote - optional} {weight} {grade} {weighted grade}"
       expect(screen.getByRole('row', { name: 'Homework 1 100% 0% 0%' })).toBeInTheDocument();
     });
     it('calculates grades correctly when number of droppable assignments is less than total number of assignments', async () => {
       await fetchAndRender();
-      expect(screen.getByText('Grade summary')).toBeInTheDocument();
+  expect(screen.getByText(messages.gradeSummary.defaultMessage)).toBeInTheDocument();
       // The row is comprised of "{Assignment type} {footnote - optional} {weight} {grade} {weighted grade}"
       expect(screen.getByRole('row', { name: 'Homework 1 100% 100% 100%' })).toBeInTheDocument();
     });
@@ -721,7 +722,7 @@ describe('Progress Tab', () => {
         },
       });
       await fetchAndRender();
-      expect(screen.getByText('Grade summary')).toBeInTheDocument();
+  expect(screen.getByText(messages.gradeSummary.defaultMessage)).toBeInTheDocument();
       // The row is comprised of "{Assignment type} {weight} {grade} {weighted grade}"
       expect(screen.getByRole('row', { name: 'Homework 100% 50% 50%' })).toBeInTheDocument();
     });
@@ -743,7 +744,7 @@ describe('Progress Tab', () => {
         },
       });
       await fetchAndRender();
-      expect(screen.getByText('Grade summary')).toBeInTheDocument();
+  expect(screen.getByText(messages.gradeSummary.defaultMessage)).toBeInTheDocument();
       // The row is comprised of "{Assignment type} {footnote - optional} {weight} {grade} {weighted grade}"
       expect(screen.getByRole('row', { name: 'Homework 1 100% 100% 100%' })).toBeInTheDocument();
     });
@@ -765,7 +766,7 @@ describe('Progress Tab', () => {
         },
       });
       await fetchAndRender();
-      expect(screen.getByText('Grade summary')).toBeInTheDocument();
+  expect(screen.getByText(messages.gradeSummary.defaultMessage)).toBeInTheDocument();
       // The row is comprised of "{Assignment type} {weight} {grade} {weighted grade}"
       expect(screen.getByRole('row', { name: 'Homework 100% 20% 20%' })).toBeInTheDocument();
     });
@@ -794,7 +795,7 @@ describe('Progress Tab', () => {
         },
       });
       await fetchAndRender();
-      expect(screen.getByText('Grade summary')).toBeInTheDocument();
+  expect(screen.getByText(messages.gradeSummary.defaultMessage)).toBeInTheDocument();
       // The row is comprised of "{Assignment type} {footnote - optional} {weight} {grade} {weighted grade}"
       expect(screen.getByRole('row', { name: 'Homework 1 50% 100% 50%' })).toBeInTheDocument();
       expect(screen.getByRole('row', { name: 'Exam 50% 0% 0%' })).toBeInTheDocument();
@@ -868,7 +869,7 @@ describe('Progress Tab', () => {
   describe('Detailed Grades', () => {
     it('renders Detailed Grades table when section scores are populated', async () => {
       await fetchAndRender();
-      expect(screen.getByText('Detailed grades')).toBeInTheDocument();
+  expect(screen.getByText(messages.detailedGrades.defaultMessage)).toBeInTheDocument();
 
       expect(screen.getByText('First subsection'));
       expect(screen.getByText('Second subsection'));
@@ -877,7 +878,7 @@ describe('Progress Tab', () => {
     it('sends event on click of subsection link', async () => {
       await fetchAndRender();
       sendTrackEvent.mockClear();
-      expect(screen.getByText('Detailed grades')).toBeInTheDocument();
+  expect(screen.getByText(messages.detailedGrades.defaultMessage)).toBeInTheDocument();
 
       const subsectionLink = screen.getByRole('link', { name: 'First subsection' });
       fireEvent.click(subsectionLink);
@@ -894,7 +895,7 @@ describe('Progress Tab', () => {
     it('sends event on click of course outline link', async () => {
       await fetchAndRender();
       sendTrackEvent.mockClear();
-      expect(screen.getByText('Detailed grades')).toBeInTheDocument();
+  expect(screen.getByText(messages.detailedGrades.defaultMessage)).toBeInTheDocument();
 
       const outlineLink = screen.getAllByRole('link', { name: 'Course outline' })[0];
       fireEvent.click(outlineLink);
@@ -910,7 +911,7 @@ describe('Progress Tab', () => {
     it('renders individual problem score drawer', async () => {
       sendTrackEvent.mockClear();
       await fetchAndRender();
-      expect(screen.getByText('Detailed grades')).toBeInTheDocument();
+  expect(screen.getByText(messages.detailedGrades.defaultMessage)).toBeInTheDocument();
 
       const problemScoreDrawerToggle = screen.getByRole('button', { name: 'Toggle individual problem scores for First subsection' });
       expect(problemScoreDrawerToggle).toBeInTheDocument();
@@ -926,13 +927,13 @@ describe('Progress Tab', () => {
         section_scores: [],
       });
       await fetchAndRender();
-      expect(screen.getByText('Detailed grades')).toBeInTheDocument();
-      expect(screen.getByText('You currently have no graded problem scores.')).toBeInTheDocument();
+  expect(screen.getByText(messages.detailedGrades.defaultMessage)).toBeInTheDocument();
+  expect(screen.getByText(messages.detailedGradesEmptyOnlyGraded.defaultMessage)).toBeInTheDocument();
     });
 
     it('renders Detailed Grades table when section scores are populated', async () => {
       await fetchAndRender();
-      expect(screen.getByText('Detailed grades')).toBeInTheDocument();
+  expect(screen.getByText(messages.detailedGrades.defaultMessage)).toBeInTheDocument();
 
       expect(screen.getByText('First subsection'));
       expect(screen.getByText('Second subsection'));
@@ -1332,11 +1333,8 @@ describe('Progress Tab', () => {
         certificate_data: undefined,
       });
       await fetchAndRender();
-      expect(screen.getByText(`Final grades and any earned certificates are scheduled to be available after ${tomorrow.toLocaleDateString('en-us', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      })}.`)).toBeInTheDocument();
+      const tomStr = `${String(tomorrow.getDate()).padStart(2, '0')}/${String(tomorrow.getMonth() + 1).padStart(2, '0')}/${tomorrow.getFullYear()}`;
+      expect(screen.getByText(`Final grades and any earned certificates are scheduled to be available after ${tomStr}.`)).toBeInTheDocument();
     });
 
     it('Shows not available messaging before certificates are available to passing learners when theres no certificate data', async () => {
@@ -1350,11 +1348,8 @@ describe('Progress Tab', () => {
         certificate_data: undefined,
       });
       await fetchAndRender();
-      expect(screen.getByText(`Final grades and any earned certificates are scheduled to be available after ${tomorrow.toLocaleDateString('en-us', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      })}.`)).toBeInTheDocument();
+      const tomStr2 = `${String(tomorrow.getDate()).padStart(2, '0')}/${String(tomorrow.getMonth() + 1).padStart(2, '0')}/${tomorrow.getFullYear()}`;
+      expect(screen.getByText(`Final grades and any earned certificates are scheduled to be available after ${tomStr2}.`)).toBeInTheDocument();
     });
 
     it('Shows certificate_available_date if learner is passing', async () => {
@@ -1372,14 +1367,8 @@ describe('Progress Tab', () => {
       });
       await fetchAndRender();
       expect(screen.getByText('Certificate status'));
-      expect(screen.getByText(
-        overmorrow.toLocaleDateString('en-us', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-        }),
-        { exact: false },
-      )).toBeInTheDocument();
+      const overStr = `${String(overmorrow.getDate()).padStart(2, '0')}/${String(overmorrow.getMonth() + 1).padStart(2, '0')}/${overmorrow.getFullYear()}`;
+      expect(screen.getByText(overStr, { exact: false })).toBeInTheDocument();
     });
   });
 
@@ -1414,9 +1403,11 @@ describe('Progress Tab', () => {
       });
 
       await fetchAndRender();
-      expect(screen.getByText('Grades & Credit')).toBeInTheDocument();
-      expect(screen.getByText('Requirements for course credit')).toBeInTheDocument();
-      expect(screen.getByText('You have met the requirements for credit in this course.', { exact: false })).toBeInTheDocument();
+  expect(screen.getByText(messages.gradesAndCredit.defaultMessage)).toBeInTheDocument();
+  // Requirements header for course credit
+  const creditMessages = require('./credit-information/messages').default;
+  expect(screen.getByText(creditMessages.requirementsHeader.defaultMessage)).toBeInTheDocument();
+  expect(screen.getByText(creditMessages.creditEligibleStatus.defaultMessage.split('\n')[0].trim(), { exact: false })).toBeInTheDocument();
       expect(screen.getByText('Proctored Mid Term Exam:')).toBeInTheDocument();
       // 80% comes from the criteria.minGrade being 0.8
       expect(screen.getByText('Minimum grade for credit (80%):')).toBeInTheDocument();
@@ -1426,8 +1417,8 @@ describe('Progress Tab', () => {
 
     it('does not render credit information when it is not provided', async () => {
       await fetchAndRender();
-      expect(screen.queryByText('Grades & Credit')).not.toBeInTheDocument();
-      expect(screen.queryByText('Requirements for course credit.')).not.toBeInTheDocument();
+  expect(screen.queryByText(messages.gradesAndCredit.defaultMessage)).not.toBeInTheDocument();
+  expect(screen.queryByText(creditMessages.requirementsHeader.defaultMessage)).not.toBeInTheDocument();
     });
   });
 
