@@ -723,19 +723,51 @@ const CourseOutlineView = () => {
                 </div>
                 {/* Show selected content (video, slide, quiz) if chosen */}
                 {selectedContent && selectedContent.type === 'video' && (
-                  selectedContent.videoUrl ? (
-                    <video controls style={{ width: '100%', marginTop: 24, borderRadius: 8 }} src={selectedContent.videoUrl} />
-                  ) : selectedContent.youtubeId ? (
-                    <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, marginTop: 24 }}>
-                      <iframe
-                        title={selectedContent.title || 'Video'}
-                        src={`https://www.youtube.com/embed/${selectedContent.youtubeId}`}
-                        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0, borderRadius: 8 }}
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      />
-                    </div>
-                  ) : null
+                  (() => {
+                    const url = selectedContent.videoUrl || '';
+                    const pub = selectedContent.publicUrl || '';
+                    const combined = String(pub || url || '');
+                    const isYouTube = /(?:youtube\.com\/embed|youtube\.com|youtu\.be)/i.test(combined) || !!selectedContent.youtubeId;
+                    const isDrive = /drive\.google\.com/i.test(combined) || /drive\.google\.com/i.test(url);
+
+                    if (isYouTube) {
+                      const embedSrc = pub || (selectedContent.youtubeId ? `https://www.youtube.com/embed/${selectedContent.youtubeId}` : (url || '').replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/'));
+                      return (
+                        <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, marginTop: 24 }}>
+                          <iframe
+                            title={selectedContent.title || 'Video'}
+                            src={embedSrc}
+                            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0, borderRadius: 8 }}
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                          />
+                        </div>
+                      );
+                    }
+
+                    if (isDrive) {
+                      const driveSrc = pub || (url || '').replace('/view', '/preview');
+                      return (
+                        <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, marginTop: 24 }}>
+                          <iframe
+                            title={selectedContent.title || 'Drive Video'}
+                            src={driveSrc}
+                            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0, borderRadius: 8 }}
+                            allowFullScreen
+                          />
+                        </div>
+                      );
+                    }
+
+                    // Fallback: regular video element (prefer publicUrl if available)
+                    if (url || pub) {
+                      return (
+                        <video controls style={{ width: '100%', marginTop: 24, borderRadius: 8 }} src={pub || url} />
+                      );
+                    }
+
+                    return null;
+                  })()
                 )}
                 {selectedContent && selectedContent.type === 'slide' && selectedContent.fileUrl && (
                   // Use FileViewer which fetches the remote file as a blob and creates an object URL
