@@ -86,7 +86,7 @@ export async function getCourseAggregate(courseId) {
  */
 export async function getVerticalData(unitId, opts = {}) {
   const url = getCourseSectionVerticalApiUrl(unitId, opts);
-  console.log(`Fetching vertical data: ${url}`);
+    // Removed dev console log
   
   try {
     const { data } = await getAuthenticatedHttpClient().get(url, {
@@ -96,8 +96,17 @@ export async function getVerticalData(unitId, opts = {}) {
     });
     
     // Apply camelCase transformation like authoring MFE
-  const courseSectionVerticalData = camelCaseObject(data);
-    console.log(`Successfully fetched vertical data for unit ${unitId}:`, courseSectionVerticalData);
+    const courseSectionVerticalData = camelCaseObject(data);
+      // Removed dev console log
+    
+    // Debug: Check if XBlock children have video data with YouTube URLs
+    const children = courseSectionVerticalData?.xblockInfo?.children || [];
+    const videoChildren = children.filter(child => child.category === 'video');
+    if (videoChildren.length > 0) {
+        // Removed dev console log
+      videoChildren.forEach((video, idx) => {
+      });
+    }
     
     return courseSectionVerticalData;
   } catch (error) {
@@ -115,22 +124,83 @@ export async function getVerticalData(unitId, opts = {}) {
  */
 export async function getUnitMedia(unitId, mediaType) {
   const url = unitMediaApiUrl(unitId, mediaType);
-  console.log(`Fetching unit media: ${url}`);
+    // Removed dev console log
   
   try {
     const { data } = await getAuthenticatedHttpClient().get(url, {
-      headers: {
-        'USE-JWT-COOKIE': 'true',
-      },
+      headers: { 'USE-JWT-COOKIE': 'true' },
     });
     
-    // Apply camelCase transformation like authoring MFE
-    const mediaData = camelCaseObject(data);
-    console.log(`Successfully fetched ${mediaType} media for unit ${unitId}:`, mediaData);
+      // Removed dev console logs
     
+    const mediaData = camelCaseObject(data);
+    
+    // For videos, enhance with XBlock data if available
+    if (mediaType === 'video' && mediaData && mediaData.results && Array.isArray(mediaData.results)) {
+      try {
+        // Get XBlock structure to find video blocks with YouTube data
+        const xblockData = await getUnitVerticalData(unitId, { debug: false });
+        const videoXBlocks = (xblockData?.xblockInfo?.children || []).filter(child => child.category === 'video');
+        
+          // Removed dev console log
+        
+        // Create a map of XBlock video data by block ID
+        const xblockVideoMap = {};
+        videoXBlocks.forEach(xblock => {
+          if (xblock.id && xblock.studentViewData) {
+            const studentData = xblock.studentViewData;
+            // Extract YouTube ID from various possible fields in student view data
+            const youtubeId = studentData.youtube_id_1_0 || studentData.youtube_id || studentData.ytid;
+            const videoSources = studentData.encoded_videos || {};
+            
+            if (youtubeId || Object.keys(videoSources).length > 0) {
+              xblockVideoMap[xblock.id] = {
+                youtubeId: youtubeId || null,
+                videoSources: videoSources,
+                displayName: xblock.displayName || studentData.display_name || 'Video',
+                studentViewData: studentData
+              };
+              
+                // Removed dev console log
+            }
+          }
+        });
+        
+        // Enhance media results with XBlock data
+        mediaData.results = mediaData.results.map(item => {
+          if (item.id && item.id.startsWith('block-v1:') && xblockVideoMap[item.id]) {
+            const xblockData = xblockVideoMap[item.id];
+            return {
+              ...item,
+              youtubeId: xblockData.youtubeId,
+              title: xblockData.displayName || item.title,
+              displayName: xblockData.displayName || item.displayName,
+              videoSources: xblockData.videoSources,
+              // Set publicUrl for YouTube videos
+              publicUrl: xblockData.youtubeId ? `https://www.youtube.com/embed/${xblockData.youtubeId}` : item.publicUrl,
+              url: xblockData.youtubeId ? `https://www.youtube.com/watch?v=${xblockData.youtubeId}` : item.url,
+              enhanced: true
+            };
+          }
+          return item;
+        });
+        
+          // Removed dev console log
+        
+      } catch (xblockError) {
+        console.warn(`[getUnitMedia] Failed to enhance with XBlock data:`, xblockError);
+        // Continue with original media data
+      }
+    }
+    
+    if (mediaData && mediaData.results && Array.isArray(mediaData.results)) {
+        // Removed dev console log
+      mediaData.results.forEach((item, idx) => {
+      });
+    }
     return mediaData;
   } catch (error) {
-    console.error(`Error fetching ${mediaType} media for unit ${unitId}:`, error);
+    console.error(`Error fetching ${mediaType} media:`, error);
     return [];
   }
 }
@@ -257,7 +327,7 @@ export function isSequentialBlock(unit) {
 
 export async function getSequentialChildren(sequentialId, opts = {}) {
   // Use the new container_handler endpoint to get children
-  console.log(`Fetching sequential children for: ${sequentialId}`);
+    // Removed dev console log
   
   try {
     const verticalData = await getVerticalData(sequentialId, opts);
@@ -270,7 +340,7 @@ export async function getSequentialChildren(sequentialId, opts = {}) {
       (child.id && child.id.includes('type@vertical'))
     );
     
-    console.log(`Found ${verticals.length} vertical children in sequential ${sequentialId}:`, verticals);
+      // Removed dev console log
     return verticals;
   } catch (error) {
     console.error(`Error fetching sequential children for ${sequentialId}:`, error);

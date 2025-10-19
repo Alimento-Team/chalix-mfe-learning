@@ -52,7 +52,57 @@ const MediaListModal = ({
         } else {
           const res = await getUnitMedia(targetUnitId, mediaType);
           const list = Array.isArray(res) ? res : (res?.results || []);
-          if (!cancelled) setItems(list);
+
+        // Debug logs removed for production
+
+          // Filter out entries that are deleted/removed or clearly unusable on the learning side.
+          const filtered = (list || []).filter((it) => {
+            if (!it) return false;
+            
+            const deleted = it.deleted || it.isDeleted || it.removed || it.is_removed || it.state === 'deleted' || it.status === 'deleted' || it.visibility === 'archived';
+            if (deleted) {
+              // Removed dev console log
+              return false;
+            }
+
+            // Determine if the item has any usable playback source or YouTube id.
+            const publicUrl = it.publicUrl || it.public_url || it.public || it.uploadUrl || it.upload_url || it.downloadUrl || it.download_url || null;
+            const videoUrl = it.videoUrl || it.url || it.fileUrl || it.downloadUrl || it.uploadUrl || null;
+            const explicitYouTube = it.youtubeId || it.youtube_id || it.ytId || it.ytid;
+            
+            // Special case: if this is a YouTube video (video/external) but missing URLs,
+            // it might be a valid YouTube video that the LMS API didn't populate correctly
+            const isYouTubeExternal = it.fileType === 'video/external' && 
+                                     (it.fileName || '').toLowerCase().includes('.url') &&
+                                     (it.title || it.displayName || '').toLowerCase().includes('youtube');
+            
+            const hasPlayable = Boolean(publicUrl || videoUrl || explicitYouTube || isYouTubeExternal);
+            if (!hasPlayable) {
+              // Removed dev console log
+              return false;
+            }
+
+            // Removed dev console log
+
+            return true;
+          });
+
+          // Deduplicate YouTube videos by youtubeId (keep first occurrence)
+          const seenYouTubeIds = new Set();
+          const visible = filtered.filter((it) => {
+            if (it.youtubeId && it.youtubeId.trim()) {
+              if (seenYouTubeIds.has(it.youtubeId)) {
+                // Removed dev console log
+                return false;
+              }
+              seenYouTubeIds.add(it.youtubeId);
+              // Removed dev console log
+            }
+            return true;
+          });
+
+          // Removed dev console log
+          if (!cancelled) setItems(visible);
         }
       } catch (e) {
         if (!cancelled) setError(e?.message || 'Failed to load media');
@@ -100,20 +150,45 @@ const MediaListModal = ({
             </div>
             <button
               style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap', minWidth: 120, background: '#0070d2', color: '#fff', border: 'none', borderRadius: 4, padding: '6px 14px', fontWeight: 600, fontSize: 14, cursor: 'pointer', flexShrink: 0 }}
-              onClick={() => {
-                const normalized = { ...item, type: mediaType };
-                if (mediaType === 'video') {
-                  normalized.title = item.title || item.displayName || item.fileName;
-                  normalized.videoUrl = item.videoUrl || item.url || item.downloadUrl || item.uploadUrl || item.fileUrl;
-                } else if (mediaType === 'slide') {
-                  normalized.title = item.title || item.displayName || item.fileName;
-                  normalized.fileUrl = item.fileUrl || item.url || item.downloadUrl || item.uploadUrl;
-                } else {
-                  normalized.title = item.title || item.displayName || item.fileName;
-                }
-                onSelect?.(normalized);
-                onClose?.();
-              }}
+                onClick={() => {
+                  const normalized = { ...item, type: mediaType };
+                  if (mediaType === 'video') {
+                    normalized.title = item.title || item.displayName || item.fileName;
+                    // Prefer explicit publicUrl/public_url when present (served CDN/public link)
+                    const publicUrl = item.publicUrl || item.public_url || item.public || item.uploadUrl || item.upload_url || item.downloadUrl || item.download_url || null;
+                    const rawUrl = String(publicUrl || item.videoUrl || item.url || item.downloadUrl || item.uploadUrl || item.fileUrl || '');
+                    normalized.publicUrl = publicUrl || null;
+                    normalized.videoUrl = item.videoUrl || item.url || item.downloadUrl || item.uploadUrl || item.fileUrl || null;
+
+                    // Attempt to detect a YouTube id from the provided urls or explicit fields
+                    const explicitYouTube = item.youtubeId || item.youtube_id || item.ytId || item.ytid;
+                    let youtubeId = explicitYouTube || null;
+                    if (!youtubeId && rawUrl) {
+                      const m = rawUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/i);
+                      if (m && m[1]) youtubeId = m[1];
+                    }
+                    
+                    // Special handling for YouTube external videos that don't have URLs populated
+                    if (!youtubeId && !normalized.videoUrl && !normalized.publicUrl && 
+                        item.fileType === 'video/external' && 
+                        (item.fileName || '').toLowerCase().includes('.url') &&
+                        (item.title || item.displayName || '').toLowerCase().includes('youtube')) {
+                      
+                      // Skip videos without URLs - they cannot be played
+                      // Removed dev console warn
+                      return;
+                    }
+                    
+                    normalized.youtubeId = youtubeId;
+                  } else if (mediaType === 'slide') {
+                    normalized.title = item.title || item.displayName || item.fileName;
+                    normalized.fileUrl = item.fileUrl || item.url || item.downloadUrl || item.uploadUrl;
+                  } else {
+                    normalized.title = item.title || item.displayName || item.fileName;
+                  }
+                  onSelect?.(normalized);
+                  onClose?.();
+                }}
             >
               Phát {typeLabel[mediaType]}
             </button>

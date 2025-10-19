@@ -32,6 +32,41 @@ import QuizRenderer from './components/QuizRenderer';
 import FileViewer from './components/FileViewer';
 
 
+/**
+ * Filter video list to remove deleted items and deduplicate by youtubeId.
+ * Also removes items without playable sources.
+ */
+const filterAndDeduplicateVideos = (list) => {
+  if (!Array.isArray(list)) return [];
+
+  // First pass: filter out deleted items and items without playable sources
+  const filtered = list.filter((it) => {
+    if (!it) return false;
+    
+    const deleted = it.deleted || it.isDeleted || it.removed || it.is_removed || it.state === 'deleted' || it.status === 'deleted' || it.visibility === 'archived';
+    if (deleted) return false;
+    
+    const publicUrl = it.publicUrl || it.public_url || it.public || it.uploadUrl || it.upload_url || it.downloadUrl || it.download_url || null;
+    const videoUrl = it.videoUrl || it.url || it.fileUrl || it.downloadUrl || it.uploadUrl || null;
+    const explicitYouTube = it.youtubeId || it.youtube_id || it.ytId || it.ytid;
+    
+    const hasPlayable = Boolean(publicUrl || videoUrl || explicitYouTube);
+    return hasPlayable;
+  });
+
+  // Second pass: deduplicate by youtubeId (keep first occurrence)
+  const seenYouTubeIds = new Set();
+  return filtered.filter((it) => {
+    if (it.youtubeId && it.youtubeId.trim()) {
+      if (seenYouTubeIds.has(it.youtubeId)) {
+        return false;
+      }
+      seenYouTubeIds.add(it.youtubeId);
+    }
+    return true;
+  });
+};
+
 const CourseOutlineView = () => {
   // All hooks must be at the top level, before any conditional returns
   const { courseId } = useSelector(state => state.courseHome);
@@ -353,13 +388,23 @@ const CourseOutlineView = () => {
           
           // Fetch videos from the first vertical
           getUnitMedia(firstVertical.id, 'video').then(res => {
-            setVideoList(Array.isArray(res) ? res : res.results || []);
+            const list = Array.isArray(res) ? res : (res?.results || []);
+            const visible = filterAndDeduplicateVideos(list);
+            setVideoList(visible);
           }).catch(() => setVideoList([]));
           
           // Fetch slides from the first vertical
-          getUnitMedia(firstVertical.id, 'slide').then(res => {
-            setSlideList(Array.isArray(res) ? res : res.results || []);
-          }).catch(() => setSlideList([]));
+              getUnitMedia(firstVertical.id, 'slide').then(res => {
+                const list = Array.isArray(res) ? res : (res?.results || []);
+                const visible = (list || []).filter((it) => {
+                  if (!it) return false;
+                  const deleted = it.deleted || it.isDeleted || it.removed || it.is_removed || it.state === 'deleted' || it.status === 'deleted';
+                  if (deleted) return false;
+                  const fileUrl = it.fileUrl || it.url || it.downloadUrl || it.uploadUrl || null;
+                  return Boolean(fileUrl);
+                });
+                setSlideList(visible);
+              }).catch(() => setSlideList([]));
           
           // Fetch quiz/problem blocks from the first vertical
           getUnitVerticalData(firstVertical.id, { debug: debugEnabled }).then(res => {
@@ -391,11 +436,21 @@ const CourseOutlineView = () => {
       
       // Fetch videos
       getUnitMedia(selectedUnitId, 'video').then(res => {
-        setVideoList(Array.isArray(res) ? res : res.results || []);
+        const list = Array.isArray(res) ? res : (res?.results || []);
+        const visible = filterAndDeduplicateVideos(list);
+        setVideoList(visible);
       }).catch(() => setVideoList([]));
       // Fetch slides
       getUnitMedia(selectedUnitId, 'slide').then(res => {
-        setSlideList(Array.isArray(res) ? res : res.results || []);
+        const list = Array.isArray(res) ? res : (res?.results || []);
+        const visible = (list || []).filter((it) => {
+          if (!it) return false;
+          const deleted = it.deleted || it.isDeleted || it.removed || it.is_removed || it.state === 'deleted' || it.status === 'deleted';
+          if (deleted) return false;
+          const fileUrl = it.fileUrl || it.url || it.downloadUrl || it.uploadUrl || null;
+          return Boolean(fileUrl);
+        });
+        setSlideList(visible);
       }).catch(() => setSlideList([]));
       // Fetch quiz/problem blocks
   getUnitVerticalData(selectedUnitId, { debug: debugEnabled }).then(res => {
