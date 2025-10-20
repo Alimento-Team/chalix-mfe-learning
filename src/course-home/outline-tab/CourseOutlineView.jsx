@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { isCourseStarted } from '../../utils/courseStatus';
 import { useSelector } from 'react-redux';
 import classNames from 'classnames';
-import { ProgressBar, IconButton, AlertModal } from '@openedx/paragon';
+import { ProgressBar, IconButton, AlertModal, ActionRow, Button } from '@openedx/paragon';
 import {
   MenuIcon,
   Favorite as HeartIcon,
@@ -89,6 +89,27 @@ const CourseOutlineView = () => {
   const [videoList, setVideoList] = useState([]);
   const [slideList, setSlideList] = useState([]);
   const [quizList, setQuizList] = useState([]);
+  // Registry for quiz renderers: { [quizId]: api }
+  const quizRegistry = useRef({});
+  const [finalSubmitting, setFinalSubmitting] = useState(false);
+  const [submissionResult, setSubmissionResult] = useState(null);
+  const [finalSubmitted, setFinalSubmitted] = useState(false);
+  const [showUnansweredModal, setShowUnansweredModal] = useState(false);
+  const [unansweredCount, setUnansweredCount] = useState(0);
+  const [showFinalConfirm, setShowFinalConfirm] = useState(false);
+  const finalSubmitActionRef = useRef(null);
+  // Ref guard to ensure the final confirm modal only appears when explicitly requested
+  const allowShowFinalConfirmRef = useRef(false);
+
+  // Dev-only: trace when the final confirm modal is requested to help debug accidental opens.
+  useEffect(() => {
+    if (showFinalConfirm) {
+      // eslint-disable-next-line no-console
+      console.info('showFinalConfirm=true; allowShowFinalConfirmRef=', !!allowShowFinalConfirmRef.current);
+      // eslint-disable-next-line no-console
+      console.trace && console.trace('showFinalConfirm trace');
+    }
+  }, [showFinalConfirm]);
 
   // Fetch course data preferring the LMS aggregate endpoint, with fallbacks
   useEffect(() => {
@@ -294,6 +315,22 @@ const CourseOutlineView = () => {
           // Ensure start date is propagated into the UI-friendly `course_info.start` field.
           // The backend now returns canonical `start_date`; fall back to legacy `start` if present.
           data.course_info.start = data.course_info.start || cfg.start_date || cfg.start || null;
+          // If final evaluation type not present in this response, attempt the Studio dashboard endpoint
+          if (!data.course_info.final_evaluation_type) {
+            try {
+              const studioBase = getConfig().STUDIO_BASE_URL || getConfig().CMS_BASE_URL || window.location.origin;
+              const dashUrl = `${studioBase}/api/chalix/dashboard/course-detail/${encodeURIComponent(courseId)}/`;
+              const dashResp = await http.get(dashUrl, { withCredentials: true, headers: { 'USE-JWT-COOKIE': 'true' } });
+              const dashCfg = dashResp?.data || {};
+              if (dashCfg.final_evaluation_type) {
+                data.course_info.final_evaluation_type = dashCfg.final_evaluation_type;
+              }
+            } catch (e) {
+              // ignore dashboard fetch failures
+            }
+          } else {
+            data.course_info.final_evaluation_type = cfg.final_evaluation_type || data.course_info.final_evaluation_type;
+          }
         } catch (e) {
           // Soft-fail: fall back to earlier data if Chalix config not available
         }
@@ -337,6 +374,37 @@ const CourseOutlineView = () => {
   const modules = courseData?.modules || [];
   const courseInfo = courseData?.course_info || {};
 
+  // Determine whether the selected unit is the final evaluation unit.
+  // We consider a unit to be final if its title contains keywords or if this is the last unit
+  // in the course outline. The authoritative source is Chalix course config: final_evaluation_type
+  // may indicate 'quiz' or 'project' (upload). We read that from courseInfo if present.
+  const isFinalUnit = useMemo(() => {
+    try {
+      if (!selectedUnit || !Array.isArray(allUnits)) return false;
+      const last = allUnits[allUnits.length - 1];
+      if (!last) return false;
+      // Heuristic: exact id match to last unit OR title includes final/kiểm tra
+      const titleLower = (selectedUnit.title || '').toLowerCase();
+      if (selectedUnit.id === last.id) return true;
+      if (selectedUnit.sectionTitle && String(selectedUnit.sectionTitle).toLowerCase().includes('kiểm tra')) return true;
+      if (/final|final exam|kiểm tra cuối|bài kiểm tra|bài kiểm tra cuối khoá|kiểm tra cuối khoá|kiểm tra cuối/.test(titleLower)) return true;
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }, [selectedUnit, allUnits]);
+
+  // Determine whether Chalix course config says final evaluation is a quiz
+  const finalEvaluationIsQuiz = useMemo(() => {
+    const candidates = [courseInfo?.course_type, courseInfo?.final_evaluation_type, courseInfo?.course_type_name, courseInfo?.type].filter(Boolean);
+    const combined = String((candidates.join(' ') || '')).toLowerCase();
+    const isQuiz = /quiz|trắc nghiệm|làm bài trắc nghiệm|làm kiểm tra/.test(combined) || combined.includes('quiz');
+    // debug
+    // eslint-disable-next-line no-console
+    console.debug('finalEvaluationIsQuiz check', { candidates, combined, isQuiz, courseInfo, selectedUnit });
+    return isQuiz;
+  }, [courseInfo]);
+
   // Helper to format a course date value to "DD/mm/YYYY".
   // Accepts Date objects, ISO strings, or timestamps. Returns 'Chưa đặt' when falsy.
   const formatCourseDate = (dateVal) => {
@@ -379,51 +447,76 @@ const CourseOutlineView = () => {
     // Handle sequential blocks by getting their vertical children first
     if (isSequentialBlock(selectedUnit)) {
       console.log('Selected unit is a sequential, fetching children:', selectedUnitId);
-  getSequentialChildren(selectedUnitId, { debug: debugEnabled }).then(verticals => {
+      getSequentialChildren(selectedUnitId, { debug: debugEnabled }).then(async (verticals) => {
         console.log('Found verticals in sequential:', verticals);
-        
-        // If we have verticals, try to get content from the first one
-        if (verticals && verticals.length > 0) {
-          const firstVertical = verticals[0];
-          
-          // Fetch videos from the first vertical
-          getUnitMedia(firstVertical.id, 'video').then(res => {
-            const list = Array.isArray(res) ? res : (res?.results || []);
-            const visible = filterAndDeduplicateVideos(list);
-            setVideoList(visible);
-          }).catch(() => setVideoList([]));
-          
-          // Fetch slides from the first vertical
-              getUnitMedia(firstVertical.id, 'slide').then(res => {
-                const list = Array.isArray(res) ? res : (res?.results || []);
-                const visible = (list || []).filter((it) => {
-                  if (!it) return false;
-                  const deleted = it.deleted || it.isDeleted || it.removed || it.is_removed || it.state === 'deleted' || it.status === 'deleted';
-                  if (deleted) return false;
-                  const fileUrl = it.fileUrl || it.url || it.downloadUrl || it.uploadUrl || null;
-                  return Boolean(fileUrl);
-                });
-                setSlideList(visible);
-              }).catch(() => setSlideList([]));
-          
-          // Fetch quiz/problem blocks from the first vertical
-          getUnitVerticalData(firstVertical.id, { debug: debugEnabled }).then(res => {
-            const children = res?.xblockInfo?.children || [];
-            const quizzes = children.filter(
-              c => c.category === 'problem' || c.category === 'quiz' || c.category === 'questions'
-            ).map(q => ({
-              id: q.id,
-              title: q.displayName || 'Quiz',
-              url: null, // Could be a link to a quiz player or modal
-            }));
-            setQuizList(quizzes);
-          }).catch(() => setQuizList([]));
-        } else {
-          // No verticals found, clear content
+
+        if (!verticals || verticals.length === 0) {
           setVideoList([]);
           setSlideList([]);
           setQuizList([]);
+          return;
         }
+
+        // If this is the final unit and final evaluation is quiz, aggregate quizzes across all verticals
+        if (isFinalUnit && finalEvaluationIsQuiz) {
+          setVideoList([]);
+          setSlideList([]);
+          try {
+            const allQuizzes = [];
+            await Promise.all(verticals.map(async (v) => {
+              try {
+                const res = await getUnitVerticalData(v.id, { debug: debugEnabled });
+                const children = res?.xblockInfo?.children || [];
+                const quizzes = children.filter(
+                  c => c.category === 'problem' || c.category === 'quiz' || c.category === 'questions'
+                ).map(q => ({ id: q.id, title: q.displayName || q.display_name || 'Quiz', url: null }));
+                allQuizzes.push(...quizzes);
+              } catch (e) {
+                // continue
+              }
+            }));
+            setQuizList(allQuizzes);
+          } catch (e) {
+            setQuizList([]);
+          }
+          return;
+        }
+
+        // Otherwise, use first vertical as previous behavior
+        const firstVertical = verticals[0];
+
+        // Fetch videos from the first vertical
+        getUnitMedia(firstVertical.id, 'video').then(res => {
+          const list = Array.isArray(res) ? res : (res?.results || []);
+          const visible = filterAndDeduplicateVideos(list);
+          setVideoList(visible);
+        }).catch(() => setVideoList([]));
+
+        // Fetch slides from the first vertical
+        getUnitMedia(firstVertical.id, 'slide').then(res => {
+          const list = Array.isArray(res) ? res : (res?.results || []);
+          const visible = (list || []).filter((it) => {
+            if (!it) return false;
+            const deleted = it.deleted || it.isDeleted || it.removed || it.is_removed || it.state === 'deleted' || it.status === 'deleted';
+            if (deleted) return false;
+            const fileUrl = it.fileUrl || it.url || it.downloadUrl || it.uploadUrl || null;
+            return Boolean(fileUrl);
+          });
+          setSlideList(visible);
+        }).catch(() => setSlideList([]));
+
+        // Fetch quiz/problem blocks from the first vertical
+        getUnitVerticalData(firstVertical.id, { debug: debugEnabled }).then(res => {
+          const children = res?.xblockInfo?.children || [];
+          const quizzes = children.filter(
+            c => c.category === 'problem' || c.category === 'quiz' || c.category === 'questions'
+          ).map(q => ({
+            id: q.id,
+            title: q.displayName || 'Quiz',
+            url: null, // Could be a link to a quiz player or modal
+          }));
+          setQuizList(quizzes);
+        }).catch(() => setQuizList([]));
       }).catch(() => {
         setVideoList([]);
         setSlideList([]);
@@ -433,38 +526,50 @@ const CourseOutlineView = () => {
     // Only fetch for vertical/unit types using isUnitBlock helper
     else if (isUnitBlock(selectedUnit)) {
       console.log('Selected unit is a vertical/unit, fetching content directly:', selectedUnitId);
-      
-      // Fetch videos
-      getUnitMedia(selectedUnitId, 'video').then(res => {
-        const list = Array.isArray(res) ? res : (res?.results || []);
-        const visible = filterAndDeduplicateVideos(list);
-        setVideoList(visible);
-      }).catch(() => setVideoList([]));
-      // Fetch slides
-      getUnitMedia(selectedUnitId, 'slide').then(res => {
-        const list = Array.isArray(res) ? res : (res?.results || []);
-        const visible = (list || []).filter((it) => {
-          if (!it) return false;
-          const deleted = it.deleted || it.isDeleted || it.removed || it.is_removed || it.state === 'deleted' || it.status === 'deleted';
-          if (deleted) return false;
-          const fileUrl = it.fileUrl || it.url || it.downloadUrl || it.uploadUrl || null;
-          return Boolean(fileUrl);
-        });
-        setSlideList(visible);
-      }).catch(() => setSlideList([]));
-      // Fetch quiz/problem blocks
-  getUnitVerticalData(selectedUnitId, { debug: debugEnabled }).then(res => {
-        // Find children of type 'problem' or 'quiz'
-        const children = res?.xblockInfo?.children || [];
-        const quizzes = children.filter(
-          c => c.category === 'problem' || c.category === 'quiz' || c.category === 'questions'
-        ).map(q => ({
-          id: q.id,
-          title: q.displayName || 'Quiz',
-          url: null, // Could be a link to a quiz player or modal
-        }));
-        setQuizList(quizzes);
-      }).catch(() => setQuizList([]));
+      // If final unit & quiz-mode, don't fetch media; just fetch quizzes from this unit
+      if (isFinalUnit && finalEvaluationIsQuiz) {
+        setVideoList([]);
+        setSlideList([]);
+        getUnitVerticalData(selectedUnitId, { debug: debugEnabled }).then(res => {
+          const children = res?.xblockInfo?.children || [];
+          const quizzes = children.filter(
+            c => c.category === 'problem' || c.category === 'quiz' || c.category === 'questions'
+          ).map(q => ({ id: q.id, title: q.displayName || 'Quiz', url: null }));
+          setQuizList(quizzes);
+        }).catch(() => setQuizList([]));
+      } else {
+        // Fetch videos
+        getUnitMedia(selectedUnitId, 'video').then(res => {
+          const list = Array.isArray(res) ? res : (res?.results || []);
+          const visible = filterAndDeduplicateVideos(list);
+          setVideoList(visible);
+        }).catch(() => setVideoList([]));
+        // Fetch slides
+        getUnitMedia(selectedUnitId, 'slide').then(res => {
+          const list = Array.isArray(res) ? res : (res?.results || []);
+          const visible = (list || []).filter((it) => {
+            if (!it) return false;
+            const deleted = it.deleted || it.isDeleted || it.removed || it.is_removed || it.state === 'deleted' || it.status === 'deleted';
+            if (deleted) return false;
+            const fileUrl = it.fileUrl || it.url || it.downloadUrl || it.uploadUrl || null;
+            return Boolean(fileUrl);
+          });
+          setSlideList(visible);
+        }).catch(() => setSlideList([]));
+        // Fetch quiz/problem blocks
+        getUnitVerticalData(selectedUnitId, { debug: debugEnabled }).then(res => {
+          // Find children of type 'problem' or 'quiz'
+          const children = res?.xblockInfo?.children || [];
+          const quizzes = children.filter(
+            c => c.category === 'problem' || c.category === 'quiz' || c.category === 'questions'
+          ).map(q => ({
+            id: q.id,
+            title: q.displayName || 'Quiz',
+            url: null, // Could be a link to a quiz player or modal
+          }));
+          setQuizList(quizzes);
+        }).catch(() => setQuizList([]));
+      }
     } else {
       console.log('Selected unit is not a valid content block:', selectedUnitId, selectedUnit.content_type);
       setVideoList([]);
@@ -472,6 +577,21 @@ const CourseOutlineView = () => {
       setQuizList([]);
     }
   }, [selectedUnitId, debugEnabled]);
+
+  // If we detect final unit + quiz-mode, ensure video/slide are cleared and the UI focuses on quizzes.
+  useEffect(() => {
+    if (isFinalUnit && finalEvaluationIsQuiz) {
+      // clear any previously selected non-quiz content
+      if (selectedContent && selectedContent.type && selectedContent.type !== 'questions') {
+        setSelectedContent(null);
+      }
+      // clear media lists (defensive)
+      setVideoList([]);
+      setSlideList([]);
+      // keep quiz list hidden until the user explicitly clicks 'Làm bài kiểm tra'
+      setShowQuizListInline(false);
+    }
+  }, [isFinalUnit, finalEvaluationIsQuiz, quizList]);
 
   // Map content type to icon
   const getContentIcon = (contentType) => {
@@ -737,9 +857,10 @@ const CourseOutlineView = () => {
                     <div className="unit-card__subtitle">{selectedUnit.content_metadata?.subtitle || 'Nội dung học tập'}</div>
                   </div>
                 </div>
-                {/* Cards for each content type */}
+                {/* final-unit detection (no debug output in production) */}
+                {/* Cards for each content type. If this is the final unit and it's quiz-mode, hide video/slide and show a single quiz card with different label. */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 24 }}>
-                  {['video', 'slide', 'questions'].map(type => (
+                  {(!isFinalUnit || !finalEvaluationIsQuiz) && ['video', 'slide'].map(type => (
                     <div key={type} style={{ background: '#f8fafd', border: '1.5px solid #b2b2b2', borderRadius: 8, padding: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         {(() => {
@@ -752,29 +873,55 @@ const CourseOutlineView = () => {
                         </div>
                       </div>
                         <button
+                          type="button"
                           style={{ background: '#0070d2', color: '#fff', border: 'none', borderRadius: 4, padding: '8px 18px', fontWeight: 600, fontSize: 15, cursor: 'pointer' }}
                           onClick={() => {
-                            if (type === 'questions') {
-                              // Show inline quiz list and select first quiz if available
-                              if (quizList && quizList.length > 0) {
-                                setShowQuizListInline(true);
-                                setSelectedContent({ ...quizList[0], type: 'questions' });
-                              } else {
-                                // Fallback to modal selection when no cached quizList
-                                setModalType(type);
-                                setModalOpen(true);
-                              }
-                            } else {
-                              setShowQuizListInline(false);
-                              setModalType(type);
-                              setModalOpen(true);
-                            }
+                            setShowQuizListInline(false);
+                            setModalType(type);
+                            setModalOpen(true);
                           }}
                         >
                           Xem
                         </button>
                     </div>
                   ))}
+
+                  {/* Quiz card: label 'Làm bài kiểm tra' when final unit & quiz-mode */}
+                  <div style={{ background: '#f8fafd', border: '1.5px solid #b2b2b2', borderRadius: 8, padding: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      {(() => {
+                        const UnitIcon = getContentIcon('questions');
+                        return <UnitIcon style={{ fontSize: 28 }} />;
+                      })()}
+                      <div>
+                        <div style={{ fontWeight: 600 }}>{typeLabel.questions}</div>
+                        <div style={{ fontSize: 13, color: '#555' }}>{selectedUnit.title} - Bấm để xem {typeLabel.questions}</div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      style={{ background: '#0070d2', color: '#fff', border: 'none', borderRadius: 4, padding: '8px 18px', fontWeight: 600, fontSize: 15, cursor: 'pointer' }}
+                      onClick={() => {
+                        // Ensure any intentional final-confirm guard is cleared when user merely opens the quiz list
+                        allowShowFinalConfirmRef.current = false;
+                        setShowFinalConfirm(false);
+                        // For final unit quiz mode we want to display all quizzes inline; otherwise open modal or default behavior
+                        if (isFinalUnit && finalEvaluationIsQuiz) {
+                          setShowQuizListInline(true);
+                          // Select first quiz if available
+                          if (quizList && quizList.length > 0) setSelectedContent({ ...quizList[0], type: 'questions' });
+                        } else if (quizList && quizList.length > 0) {
+                          setShowQuizListInline(true);
+                          setSelectedContent({ ...quizList[0], type: 'questions' });
+                        } else {
+                          setModalType('questions');
+                          setModalOpen(true);
+                        }
+                      }}
+                    >
+                      {isFinalUnit && finalEvaluationIsQuiz ? 'Làm bài kiểm tra' : 'Xem'}
+                    </button>
+                  </div>
                 </div>
                 {/* Show selected content (video, slide, quiz) if chosen */}
                 {selectedContent && selectedContent.type === 'video' && (
@@ -832,7 +979,146 @@ const CourseOutlineView = () => {
                   </React.Suspense>
                 )}
                 {selectedContent && selectedContent.type === 'questions' && (
-                  <QuizRenderer selectedContent={selectedContent} unitId={selectedUnitId} />
+                  <>
+                    {/* If final unit & quiz-mode: render all quizzes fully (display every quiz's QuizRenderer) */}
+                    {isFinalUnit && finalEvaluationIsQuiz && quizList && quizList.length > 0 ? (
+                      showQuizListInline ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: 12 }}>
+                          {quizList.map((q, idx) => (
+                            <div key={q.id || idx} style={{ background: '#fff', padding: 14, borderRadius: 8, boxShadow: '0 1px 0 rgba(0,0,0,0.04)' }}>
+                              <QuizRenderer
+                                selectedContent={{ ...q, type: 'questions' }}
+                                unitId={selectedUnitId}
+                                forceOpen={true}
+                                onRegister={(id, api) => {
+                                  if (id && api) quizRegistry.current[id] = api;
+                                  else if (id && !api) delete quizRegistry.current[id];
+                                }}
+                                disabled={finalSubmitted}
+                                showHeader={true}
+                              />
+                            </div>
+                          ))}
+                        <div style={{ marginTop: 18, display: 'flex', gap: 12, alignItems: 'center' }}>
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            disabled={finalSubmitting || finalSubmitted}
+                            onClick={async () => {
+                              // This handler is the only place that may request the final confirm modal.
+                              // Compute quiz ids and validate all answered before showing the modal.
+                              const ids = Object.keys(quizRegistry.current || {});
+                              const notAnswered = [];
+                              for (const id of ids) {
+                                try {
+                                  const api = quizRegistry.current[id];
+                                  if (!api) continue;
+                                  const answered = api.isAnswered();
+                                  if (!answered) notAnswered.push(id);
+                                } catch (e) {
+                                  notAnswered.push(id);
+                                }
+                              }
+
+                              // If any unanswered, highlight and show the unanswered modal and do NOT open final confirm.
+                              if (notAnswered.length > 0) {
+                                for (const id of notAnswered) {
+                                  try { const api = quizRegistry.current[id]; if (api) api.highlight(true); } catch (e) {}
+                                }
+                                const first = notAnswered[0];
+                                const el = document.querySelector(`[data-quiz-id="${first}"]`);
+                                if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                setUnansweredCount(notAnswered.length);
+                                setShowUnansweredModal(true);
+                                return;
+                              }
+
+                              // All quizzes answered: prepare the submission action and then explicitly allow and open the modal.
+                              finalSubmitActionRef.current = async () => {
+                                setFinalSubmitting(true);
+                                setSubmissionResult(null);
+                                const results = [];
+                                for (const id of ids) {
+                                  try {
+                                    const api = quizRegistry.current[id];
+                                    if (!api) continue;
+                                    const res = await api.submit();
+                                    results.push({ id, ok: true, result: res });
+                                  } catch (e) {
+                                    results.push({ id, ok: false, error: e?.message || String(e) });
+                                  }
+                                }
+                                setFinalSubmitting(false);
+                                setSubmissionResult(results);
+                              };
+
+                              // Intentionally requested by the final-submit button: set the guard and show
+                              allowShowFinalConfirmRef.current = true;
+                              // eslint-disable-next-line no-console
+                              console.trace && console.trace('Showing final confirm modal (intentional)');
+                              setShowFinalConfirm(true);
+                            }}
+                          >
+                            {finalSubmitted ? 'Đã nộp thành công' : (finalSubmitting ? 'Đang gửi...' : 'Nộp toàn bộ bài kiểm tra')}
+                          </button>
+                          {/* submissionResult intentionally not shown inline; displayed elsewhere */}
+                        </div>
+                        {/* Unanswered modal */}
+                        <AlertModal
+                          isOpen={showUnansweredModal}
+                          title="Có câu hỏi chưa trả lời"
+                          onClose={() => setShowUnansweredModal(false)}
+                          cancelLabel="Đóng"
+                        >
+                          <p>{`Bạn còn ${unansweredCount} quiz chưa trả lời. Vui lòng hoàn thành trước khi nộp.`}</p>
+                        </AlertModal>
+
+                        {/* Final confirm modal */}
+                        <AlertModal
+                          isOpen={showFinalConfirm && !!allowShowFinalConfirmRef.current}
+                          title="Xác nhận nộp toàn bộ"
+                          onClose={() => {
+                            // Closing the modal should clear the intentional flag so accidental opens are blocked
+                            allowShowFinalConfirmRef.current = false;
+                            setShowFinalConfirm(false);
+                          }}
+                          // Provide an explicit footer so both buttons always render consistently
+                          footerNode={(
+                            <ActionRow>
+                              <Button
+                                variant="default"
+                                onClick={() => {
+                                  allowShowFinalConfirmRef.current = false;
+                                  setShowFinalConfirm(false);
+                                }}
+                              >
+                                Xem lại
+                              </Button>
+                              <Button
+                                variant="primary"
+                                onClick={async () => {
+                                  // Immediately mark final submitted in the UI, then run the submission actions.
+                                  setFinalSubmitted(true);
+                                  allowShowFinalConfirmRef.current = false;
+                                  setShowFinalConfirm(false);
+                                  if (finalSubmitActionRef.current) await finalSubmitActionRef.current();
+                                }}
+                              >
+                                Xác nhận
+                              </Button>
+                            </ActionRow>
+                          )}
+                          hasCloseButton
+                        >
+                          <p>Bạn có chắc chắn muốn nộp toàn bộ các bài kiểm tra? Hành động này sẽ ghi nhận toàn bộ kết quả và không thể hoàn tác.</p>
+                        </AlertModal>
+                      </div>
+                      ) : null
+                    ) : (
+                      // Non-final or fallback behavior: render the single selected quiz
+                      <QuizRenderer selectedContent={selectedContent} unitId={selectedUnitId} requireConfirm={false} />
+                    )}
+                  </>
                 )}
               </div>
               {/* Media list modal – loads on demand to mirror authoring behavior */}

@@ -2,18 +2,22 @@ import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import { getConfig } from '@edx/frontend-platform';
 import { getAuthenticatedHttpClient } from '@edx/frontend-platform/auth';
+// Confirmation and final submit are handled by the parent component.
 
-const QuizRenderer = ({ selectedContent, unitId }) => {
+const QuizRenderer = ({ selectedContent, unitId, onRegister = null, requireConfirm = false, forceOpen = false, disabled = false, showHeader = true }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [quiz, setQuiz] = useState(null);
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
+  const [opened, setOpened] = useState(false);
+  const [highlighted, setHighlighted] = useState(false);
 
+  // Load quiz details only when the quiz is opened to avoid fetching many quizzes at once.
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      if (!selectedContent) return;
+      if (!selectedContent || !opened) return;
       setLoading(true);
       setError(null);
       setQuiz(null);
@@ -41,7 +45,12 @@ const QuizRenderer = ({ selectedContent, unitId }) => {
     };
     load();
     return () => { cancelled = true; };
-  }, [selectedContent, unitId]);
+  }, [selectedContent, unitId, opened]);
+
+  // If parent requests to force-open this quiz (show full questions), obey it.
+  useEffect(() => {
+    if (forceOpen) setOpened(true);
+  }, [forceOpen]);
 
   const handleChange = (questionId, choiceId, multiple) => {
     setAnswers(prev => {
@@ -57,7 +66,11 @@ const QuizRenderer = ({ selectedContent, unitId }) => {
     });
   };
 
-  const handleSubmit = async () => {
+  const doSubmit = async () => {
+    if (disabled) {
+      // Prevent submission if parent marked quizzes as final-submitted
+      return null;
+    }
     if (!quiz) return;
     setLoading(true);
     setError(null);
@@ -76,6 +89,7 @@ const QuizRenderer = ({ selectedContent, unitId }) => {
       const payload = { answers };
       const resp = await client.post(postUrl, payload, { headers: { 'USE-JWT-COOKIE': 'true' } });
       setResult(resp.data || null);
+      return resp.data || null;
     } catch (e) {
       setError(e?.message || 'Submission failed');
     } finally {
@@ -83,15 +97,70 @@ const QuizRenderer = ({ selectedContent, unitId }) => {
     }
   };
 
+  // Registration API: allow parent to register this quiz so it can orchestrate final submit
+  useEffect(() => {
+    if (typeof onRegister !== 'function') return undefined;
+    const id = selectedContent?.id || null;
+    if (!id) return undefined;
+    const api = {
+      id,
+      getAnswers: () => answers,
+      isAnswered: () => {
+        if (!quiz || !Array.isArray(quiz.questions) || quiz.questions.length === 0) return false;
+        return quiz.questions.every((q) => {
+          const qid = String(q.id || q.pk || '');
+          return Array.isArray(answers[qid]) && answers[qid].length > 0;
+        });
+      },
+      submit: async () => {
+        if (!quiz && !opened) {
+          setOpened(true);
+          await new Promise((resolve) => {
+            const iv = setInterval(() => { if (!loading) { clearInterval(iv); resolve(); } }, 100);
+            setTimeout(() => { clearInterval(iv); resolve(); }, 5000);
+          });
+        }
+        return doSubmit();
+      },
+      highlight: (v) => setHighlighted(Boolean(v)),
+      open: () => setOpened(true),
+    };
+    try { onRegister(id, api); } catch (e) { /* ignore */ }
+    return () => { try { onRegister(id, null); } catch (e) { /* ignore */ } };
+  }, [selectedContent, quiz, answers, onRegister, doSubmit, opened, loading]);
+
+  // If not opened, show a compact card with an explicit button to open the quiz.
+  if (!opened) {
+    return (
+      <div data-quiz-id={selectedContent?.id || ''} style={{ marginTop: 12, padding: 12, borderRadius: 6, background: highlighted ? '#fff6f6' : '#fff' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontWeight: 700 }}>{selectedContent?.title || 'Bài kiểm tra'}</div>
+          <div>
+            {!forceOpen && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => { if (!disabled) setOpened(true); }}
+                disabled={disabled}
+              >
+                {disabled ? 'Đã nộp' : 'Làm bài kiểm tra'}
+              </button>
+            )}
+          </div>
+        </div>
+        {highlighted && (<div style={{ marginTop: 8, color: '#c0392b' }}>Bài này chưa được trả lời.</div>)}
+      </div>
+    );
+  }
+
   if (loading) return <div>Đang tải...</div>;
   if (error) return <div style={{ color: '#c00' }}>{error}</div>;
   if (!quiz) return <div>Không có quiz để hiển thị.</div>;
 
   return (
-    <div style={{ marginTop: 24, padding: 24, background: '#fff', borderRadius: 8 }}>
-      <h3>{quiz.title}</h3>
-      <p>{quiz.description}</p>
-      <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+    <div data-quiz-id={selectedContent?.id || ''} style={{ marginTop: 12, padding: 14, background: highlighted ? '#fff6f6' : '#fff', borderRadius: 8 }}>
+      {showHeader && (<h3 style={{ marginTop: 0 }}>{quiz.title}</h3>)}
+      <div>
         {(quiz.questions || []).map((q, idx) => (
           <div key={q.id || idx} style={{ marginBottom: 18 }}>
             <div style={{ fontWeight: 600 }}>{idx + 1}. {q.question_text || q.text || 'Câu hỏi'}</div>
@@ -107,8 +176,9 @@ const QuizRenderer = ({ selectedContent, unitId }) => {
                       type={multiple ? 'checkbox' : 'radio'}
                       name={`q-${qid}`}
                       checked={checked}
-                      onChange={() => handleChange(qid, cid, multiple)}
+                      onChange={() => { if (!disabled) handleChange(qid, cid, multiple); }}
                       style={{ marginRight: 8 }}
+                      disabled={disabled}
                     />
                     {c.text || c.choice_text || c.choice || ''}
                   </label>
@@ -117,10 +187,7 @@ const QuizRenderer = ({ selectedContent, unitId }) => {
             </div>
           </div>
         ))}
-        <div style={{ marginTop: 12 }}>
-          <button type="submit" style={{ background: '#0070d2', color: '#fff', border: 'none', padding: '8px 18px', borderRadius: 6 }}>Nộp bài</button>
-        </div>
-      </form>
+      </div>
       {result && (
         <div style={{ marginTop: 16, background: '#f0f9ff', padding: 12, borderRadius: 6 }}>
           <div>Kết quả: {result?.score ? `${result.score[0]} / ${result.score[1]}` : JSON.stringify(result)}</div>
@@ -133,6 +200,14 @@ const QuizRenderer = ({ selectedContent, unitId }) => {
 QuizRenderer.propTypes = {
   selectedContent: PropTypes.object,
   unitId: PropTypes.string,
+  onRegister: PropTypes.func,
 };
+
+QuizRenderer.defaultProps = {
+  selectedContent: null,
+  unitId: '',
+  onRegister: null,
+};
+
 
 export default QuizRenderer;
