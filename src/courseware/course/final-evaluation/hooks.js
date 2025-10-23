@@ -35,13 +35,15 @@ export function useFinalUnitDetection(currentSequenceId, currentUnitId) {
   }
 
   // Check by sequence display name first (most reliable)
-  if (sequence?.displayName && sequence.displayName.includes('Kiểm tra cuối khóa')) {
+  // Support both spellings: "khóa" and "khoá"
+  const finalEvalPattern = /Kiểm tra cuối kh[óo]á/i;
+  if (sequence?.displayName && finalEvalPattern.test(sequence.displayName)) {
     console.log('✅ Final evaluation detected by sequence name:', sequence.displayName);
     return true;
   }
 
   // Check by unit display name as fallback
-  if (unit?.displayName && unit.displayName.includes('Kiểm tra cuối khóa')) {
+  if (unit?.displayName && finalEvalPattern.test(unit.displayName)) {
     console.log('✅ Final evaluation detected by unit name:', unit.displayName);
     return true;
   }

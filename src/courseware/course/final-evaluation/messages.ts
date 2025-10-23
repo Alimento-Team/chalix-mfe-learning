@@ -96,6 +96,71 @@ const messages = defineMessages({
     defaultMessage: '(Có thể chọn nhiều đáp án)',
     description: 'Note for multiple choice questions',
   },
+  projectTitle: {
+    id: 'learn.course.final.evaluation.project.title',
+    defaultMessage: 'Nộp bài thu hoạch',
+    description: 'Title for project evaluation',
+  },
+  projectDescription: {
+    id: 'learn.course.final.evaluation.project.description',
+    defaultMessage: 'Vui lòng tải lên file bài thu hoạch của bạn (định dạng DOCX hoặc PDF).',
+    description: 'Description for project evaluation',
+  },
+  uploadFile: {
+    id: 'learn.course.final.evaluation.upload.file',
+    defaultMessage: 'Chọn file để tải lên',
+    description: 'Button text to upload file',
+  },
+  submitProject: {
+    id: 'learn.course.final.evaluation.submit.project',
+    defaultMessage: 'Nộp bài thu hoạch',
+    description: 'Button text to submit project',
+  },
+  fileSelected: {
+    id: 'learn.course.final.evaluation.file.selected',
+    defaultMessage: 'File đã chọn',
+    description: 'Label for selected file',
+  },
+  noFileSelected: {
+    id: 'learn.course.final.evaluation.no.file.selected',
+    defaultMessage: 'Chưa chọn file',
+    description: 'Message when no file is selected',
+  },
+  invalidFileType: {
+    id: 'learn.course.final.evaluation.invalid.file.type',
+    defaultMessage: 'Vui lòng chọn file có định dạng DOCX hoặc PDF.',
+    description: 'Error message for invalid file type',
+  },
+  fileSizeExceeded: {
+    id: 'learn.course.final.evaluation.file.size.exceeded',
+    defaultMessage: 'Kích thước file không được vượt quá {maxSize}MB.',
+    description: 'Error message when file size exceeds limit',
+  },
+  projectSubmitted: {
+    id: 'learn.course.final.evaluation.project.submitted',
+    defaultMessage: 'Đã nộp bài thu hoạch',
+    description: 'Title when project is submitted',
+  },
+  projectSubmittedMessage: {
+    id: 'learn.course.final.evaluation.project.submitted.message',
+    defaultMessage: 'Chúc mừng! Bài thu hoạch của bạn đã được nộp thành công. Giảng viên sẽ chấm điểm và phản hồi trong thời gian sớm nhất.',
+    description: 'Message shown when project is submitted successfully',
+  },
+  projectSubmitError: {
+    id: 'learn.course.final.evaluation.project.submit.error',
+    defaultMessage: 'Không thể nộp bài thu hoạch. Vui lòng thử lại.',
+    description: 'Error message when failing to submit project',
+  },
+  confirmProjectSubmissionTitle: {
+    id: 'learn.course.final.evaluation.confirm.project.submission.title',
+    defaultMessage: 'Xác nhận nộp bài',
+    description: 'Title for project submission confirmation dialog',
+  },
+  confirmProjectSubmissionMessage: {
+    id: 'learn.course.final.evaluation.confirm.project.submission.message',
+    defaultMessage: 'Bạn có chắc chắn muốn nộp bài thu hoạch này? Sau khi nộp bài, bạn sẽ không thể thay đổi.',
+    description: 'Message asking for confirmation before submitting project',
+  },
 });
 
 export default messages;

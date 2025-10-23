@@ -100,6 +100,12 @@ const CourseOutlineView = () => {
   const finalSubmitActionRef = useRef(null);
   // Ref guard to ensure the final confirm modal only appears when explicitly requested
   const allowShowFinalConfirmRef = useRef(false);
+  // State for inline final evaluation submission
+  const [showFinalEvaluation, setShowFinalEvaluation] = useState(false);
+  const [finalEvaluationConfig, setFinalEvaluationConfig] = useState(null);
+  const [finalEvaluationLoading, setFinalEvaluationLoading] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState(null);
+  const [uploadError, setUploadError] = useState(null);
 
   // Dev-only: trace when the final confirm modal is requested to help debug accidental opens.
   useEffect(() => {
@@ -858,70 +864,402 @@ const CourseOutlineView = () => {
                   </div>
                 </div>
                 {/* final-unit detection (no debug output in production) */}
-                {/* Cards for each content type. If this is the final unit and it's quiz-mode, hide video/slide and show a single quiz card with different label. */}
+                {/* Cards for each content type. If this is the final unit, hide all content cards (video, slide, quiz) and only show the navigation button. */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 24 }}>
-                  {(!isFinalUnit || !finalEvaluationIsQuiz) && ['video', 'slide'].map(type => (
-                    <div key={type} style={{ background: '#f8fafd', border: '1.5px solid #b2b2b2', borderRadius: 8, padding: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        {(() => {
-                          const UnitIcon = getContentIcon(type);
-                          return <UnitIcon style={{ fontSize: 28 }} />;
-                        })()}
-                        <div>
-                          <div style={{ fontWeight: 600 }}>{typeLabel[type]}</div>
-                          <div style={{ fontSize: 13, color: '#555' }}>{selectedUnit.title} - Bấm để xem {typeLabel[type]}</div>
+                  {/* Hide video, slide, and quiz cards for final units */}
+                  {!isFinalUnit && (
+                    <>
+                      {['video', 'slide'].map(type => (
+                        <div key={type} style={{ background: '#f8fafd', border: '1.5px solid #b2b2b2', borderRadius: 8, padding: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            {(() => {
+                              const UnitIcon = getContentIcon(type);
+                              return <UnitIcon style={{ fontSize: 28 }} />;
+                            })()}
+                            <div>
+                              <div style={{ fontWeight: 600 }}>{typeLabel[type]}</div>
+                              <div style={{ fontSize: 13, color: '#555' }}>{selectedUnit.title} - Bấm để xem {typeLabel[type]}</div>
+                            </div>
+                          </div>
+                            <button
+                              type="button"
+                              style={{ background: '#0070d2', color: '#fff', border: 'none', borderRadius: 4, padding: '8px 18px', fontWeight: 600, fontSize: 15, cursor: 'pointer' }}
+                              onClick={() => {
+                                setShowQuizListInline(false);
+                                setModalType(type);
+                                setModalOpen(true);
+                              }}
+                            >
+                              Xem
+                            </button>
                         </div>
-                      </div>
+                      ))}
+
+                      {/* Quiz card for non-final units */}
+                      <div style={{ background: '#f8fafd', border: '1.5px solid #b2b2b2', borderRadius: 8, padding: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          {(() => {
+                            const UnitIcon = getContentIcon('questions');
+                            return <UnitIcon style={{ fontSize: 28 }} />;
+                          })()}
+                          <div>
+                            <div style={{ fontWeight: 600 }}>{typeLabel.questions}</div>
+                            <div style={{ fontSize: 13, color: '#555' }}>{selectedUnit.title} - Bấm để xem {typeLabel.questions}</div>
+                          </div>
+                        </div>
                         <button
                           type="button"
                           style={{ background: '#0070d2', color: '#fff', border: 'none', borderRadius: 4, padding: '8px 18px', fontWeight: 600, fontSize: 15, cursor: 'pointer' }}
                           onClick={() => {
-                            setShowQuizListInline(false);
-                            setModalType(type);
-                            setModalOpen(true);
+                            allowShowFinalConfirmRef.current = false;
+                            setShowFinalConfirm(false);
+                            if (quizList && quizList.length > 0) {
+                              setShowQuizListInline(true);
+                              setSelectedContent({ ...quizList[0], type: 'questions' });
+                            } else {
+                              setModalType('questions');
+                              setModalOpen(true);
+                            }
                           }}
                         >
                           Xem
                         </button>
-                    </div>
-                  ))}
-
-                  {/* Quiz card: label 'Làm bài kiểm tra' when final unit & quiz-mode */}
-                  <div style={{ background: '#f8fafd', border: '1.5px solid #b2b2b2', borderRadius: 8, padding: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      {(() => {
-                        const UnitIcon = getContentIcon('questions');
-                        return <UnitIcon style={{ fontSize: 28 }} />;
-                      })()}
-                      <div>
-                        <div style={{ fontWeight: 600 }}>{typeLabel.questions}</div>
-                        <div style={{ fontSize: 13, color: '#555' }}>{selectedUnit.title} - Bấm để xem {typeLabel.questions}</div>
                       </div>
+                    </>
+                  )}
+
+                  {/* Inline Final Evaluation Submission */}
+                  {isFinalUnit && !showFinalEvaluation && (
+                    <div style={{ marginTop: 16, padding: 16, background: '#e3f2fd', border: '2px solid #0070d2', borderRadius: 8 }}>
+                      <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, color: '#0070d2' }}>
+                        🎓 Kiểm tra cuối khóa
+                      </div>
+                      <div style={{ fontSize: 14, color: '#555', marginBottom: 12 }}>
+                        {finalEvaluationIsQuiz ? 'Làm bài kiểm tra đánh giá kiến thức toàn khóa học' : 'Nộp bài thu hoạch của bạn'}
+                      </div>
+                      <button
+                        type="button"
+                        style={{ background: '#0070d2', color: '#fff', border: 'none', borderRadius: 4, padding: '10px 24px', fontWeight: 600, fontSize: 15, cursor: 'pointer', width: '100%' }}
+                        onClick={async () => {
+                          setShowFinalEvaluation(true);
+                          setFinalEvaluationLoading(true);
+                          try {
+                            // Fetch final evaluation config
+                            const response = await getAuthenticatedHttpClient().get(
+                              `${getConfig().LMS_BASE_URL}/api/course_home/v1/final_evaluation/${courseId}/config`
+                            );
+                            setFinalEvaluationConfig(response.data);
+                            
+                            // If it's a quiz type, fetch the quiz list from the API
+                            if (response.data?.evaluation_type === 'quiz' && selectedUnit?.id) {
+                              try {
+                                console.log('Fetching quizzes for unit:', selectedUnit.id);
+                                const quizRes = await getAuthenticatedHttpClient().get(
+                                  `${getConfig().LMS_BASE_URL}/api/course_home/v1/content/units/${selectedUnit.id}/quizzes/`
+                                );
+                                const quizzes = quizRes.data?.results || quizRes.data || [];
+                                console.log('Found quizzes from API:', quizzes);
+                                setQuizList(quizzes);
+                              } catch (err) {
+                                console.error('Error loading quizzes from API:', err);
+                                setQuizList([]);
+                              }
+                            }
+                          } catch (err) {
+                            console.error('Error loading final evaluation:', err);
+                            setUploadError('Không thể tải thông tin đánh giá cuối khóa');
+                          } finally {
+                            setFinalEvaluationLoading(false);
+                          }
+                        }}
+                      >
+                        {finalEvaluationIsQuiz ? '🚀 Bắt đầu kiểm tra' : '📄 Nộp bài thu hoạch'}
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      style={{ background: '#0070d2', color: '#fff', border: 'none', borderRadius: 4, padding: '8px 18px', fontWeight: 600, fontSize: 15, cursor: 'pointer' }}
-                      onClick={() => {
-                        // Ensure any intentional final-confirm guard is cleared when user merely opens the quiz list
-                        allowShowFinalConfirmRef.current = false;
-                        setShowFinalConfirm(false);
-                        // For final unit quiz mode we want to display all quizzes inline; otherwise open modal or default behavior
-                        if (isFinalUnit && finalEvaluationIsQuiz) {
-                          setShowQuizListInline(true);
-                          // Select first quiz if available
-                          if (quizList && quizList.length > 0) setSelectedContent({ ...quizList[0], type: 'questions' });
-                        } else if (quizList && quizList.length > 0) {
-                          setShowQuizListInline(true);
-                          setSelectedContent({ ...quizList[0], type: 'questions' });
-                        } else {
-                          setModalType('questions');
-                          setModalOpen(true);
-                        }
-                      }}
-                    >
-                      {isFinalUnit && finalEvaluationIsQuiz ? 'Làm bài kiểm tra' : 'Xem'}
-                    </button>
-                  </div>
+                  )}
+
+                  {/* Final Evaluation Submission UI */}
+                  {isFinalUnit && showFinalEvaluation && (
+                    <div style={{ marginTop: 16, padding: 20, background: '#fff', border: '2px solid #0070d2', borderRadius: 8 }}>
+                      {finalEvaluationLoading ? (
+                        <div style={{ textAlign: 'center', padding: 40 }}>
+                          <div style={{ fontSize: 16, color: '#555' }}>Đang tải...</div>
+                        </div>
+                      ) : finalEvaluationConfig?.evaluation_type === 'project' ? (
+                        // Project submission UI
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 12, color: '#0070d2' }}>
+                            📝 {finalEvaluationConfig.title || 'Nộp bài thu hoạch'}
+                          </div>
+                          {finalEvaluationConfig.description && (
+                            <div style={{ padding: 16, background: '#f8f9fa', borderRadius: 8, marginBottom: 16, fontSize: 14, color: '#333', lineHeight: 1.6 }}>
+                              {finalEvaluationConfig.description}
+                            </div>
+                          )}
+                          
+                          {uploadError && (
+                            <div style={{ padding: 12, background: '#fee', border: '1px solid #fcc', borderRadius: 6, marginBottom: 16, color: '#c33' }}>
+                              {uploadError}
+                            </div>
+                          )}
+                          
+                          {!finalSubmitted ? (
+                            <>
+                              <div style={{ marginBottom: 16 }}>
+                                <label htmlFor="file-upload" style={{ display: 'block', fontWeight: 600, marginBottom: 8 }}>
+                                  Chọn file (PDF, DOCX, PPTX - tối đa 50MB)
+                                </label>
+                                <input
+                                  id="file-upload"
+                                  type="file"
+                                  accept=".pdf,.docx,.pptx"
+                                  onChange={(e) => {
+                                    const file = e.target.files[0];
+                                    if (file) {
+                                      const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'];
+                                      if (!allowedTypes.includes(file.type)) {
+                                        setUploadError('Chỉ chấp nhận file PDF, DOCX hoặc PPTX');
+                                        setUploadedFile(null);
+                                        return;
+                                      }
+                                      if (file.size > 50 * 1024 * 1024) {
+                                        setUploadError('File vượt quá 50MB');
+                                        setUploadedFile(null);
+                                        return;
+                                      }
+                                      setUploadedFile(file);
+                                      setUploadError(null);
+                                    }
+                                  }}
+                                  style={{ display: 'block', width: '100%', padding: 10, border: '1px solid #ccc', borderRadius: 4 }}
+                                />
+                                {uploadedFile && (
+                                  <div style={{ marginTop: 8, fontSize: 13, color: '#28a745' }}>
+                                    ✓ Đã chọn: {uploadedFile.name} ({(uploadedFile.size / 1024 / 1024).toFixed(2)} MB)
+                                  </div>
+                                )}
+                              </div>
+                              
+                              <div style={{ display: 'flex', gap: 12 }}>
+                                <button
+                                  type="button"
+                                  disabled={!uploadedFile || finalSubmitting}
+                                  onClick={async () => {
+                                    if (!uploadedFile) return;
+                                    
+                                    setFinalSubmitting(true);
+                                    setUploadError(null);
+                                    
+                                    try {
+                                      const formData = new FormData();
+                                      formData.append('file', uploadedFile);
+                                      
+                                      const response = await getAuthenticatedHttpClient().post(
+                                        `${getConfig().LMS_BASE_URL}/api/course_home/v1/final_evaluation/${courseId}/project/submit`,
+                                        formData,
+                                        {
+                                          headers: {
+                                            'Content-Type': 'multipart/form-data',
+                                          },
+                                        }
+                                      );
+                                      
+                                      setSubmissionResult(response.data);
+                                      setFinalSubmitted(true);
+                                    } catch (err) {
+                                      console.error('Submission error:', err);
+                                      setUploadError(err.response?.data?.error || 'Không thể nộp bài. Vui lòng thử lại.');
+                                    } finally {
+                                      setFinalSubmitting(false);
+                                    }
+                                  }}
+                                  style={{ 
+                                    flex: 1, 
+                                    background: uploadedFile && !finalSubmitting ? '#28a745' : '#ccc', 
+                                    color: '#fff', 
+                                    border: 'none', 
+                                    borderRadius: 4, 
+                                    padding: '12px 24px', 
+                                    fontWeight: 600, 
+                                    fontSize: 15, 
+                                    cursor: uploadedFile && !finalSubmitting ? 'pointer' : 'not-allowed' 
+                                  }}
+                                >
+                                  {finalSubmitting ? '⏳ Đang nộp...' : '✅ Nộp bài'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setShowFinalEvaluation(false);
+                                    setUploadedFile(null);
+                                    setUploadError(null);
+                                  }}
+                                  style={{ background: '#6c757d', color: '#fff', border: 'none', borderRadius: 4, padding: '12px 24px', fontWeight: 600, fontSize: 15, cursor: 'pointer' }}
+                                >
+                                  Hủy
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            <div style={{ padding: 20, background: '#d4edda', border: '1px solid #c3e6cb', borderRadius: 8, textAlign: 'center' }}>
+                              <div style={{ fontSize: 18, fontWeight: 600, color: '#155724', marginBottom: 8 }}>
+                                ✅ Đã nộp bài thành công!
+                              </div>
+                              <div style={{ fontSize: 14, color: '#155724' }}>
+                                File: {submissionResult?.file_name}
+                              </div>
+                              <div style={{ fontSize: 13, color: '#155724', marginTop: 4 }}>
+                                Thời gian: {submissionResult?.submitted_at ? new Date(submissionResult.submitted_at).toLocaleString('vi-VN') : ''}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : finalEvaluationConfig?.evaluation_type === 'quiz' ? (
+                        // Quiz UI - show quizzes inline automatically
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 12, color: '#0070d2' }}>
+                            📝 {finalEvaluationConfig.title || 'Bài kiểm tra cuối khóa'}
+                          </div>
+                          {finalEvaluationConfig.description && (
+                            <div style={{ padding: 16, background: '#f8f9fa', borderRadius: 8, marginBottom: 16, fontSize: 14, color: '#333', lineHeight: 1.6 }}>
+                              {finalEvaluationConfig.description}
+                            </div>
+                          )}
+                          
+                          {/* Display quiz list inline */}
+                          {quizList && quizList.length > 0 ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: 16 }}>
+                              {quizList.map((q, idx) => (
+                                <div key={q.id || idx} style={{ background: '#fff', padding: 14, border: '1px solid #ddd', borderRadius: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                                  <QuizRenderer
+                                    selectedContent={{ ...q, type: 'questions' }}
+                                    unitId={selectedUnitId}
+                                    forceOpen={true}
+                                    onRegister={(id, api) => {
+                                      if (id && api) quizRegistry.current[id] = api;
+                                      else if (id && !api) delete quizRegistry.current[id];
+                                    }}
+                                    disabled={finalSubmitted}
+                                    showHeader={true}
+                                  />
+                                </div>
+                              ))}
+                              <div style={{ marginTop: 18, display: 'flex', gap: 12, alignItems: 'center' }}>
+                                <button
+                                  type="button"
+                                  className="btn btn-primary"
+                                  disabled={finalSubmitting || finalSubmitted}
+                                  onClick={async () => {
+                                    const ids = Object.keys(quizRegistry.current || {});
+                                    const notAnswered = [];
+                                    for (const id of ids) {
+                                      try {
+                                        const api = quizRegistry.current[id];
+                                        if (!api) continue;
+                                        const answered = api.isAnswered();
+                                        if (!answered) notAnswered.push(id);
+                                      } catch (e) {
+                                        notAnswered.push(id);
+                                      }
+                                    }
+
+                                    if (notAnswered.length > 0) {
+                                      for (const id of notAnswered) {
+                                        try { const api = quizRegistry.current[id]; if (api) api.highlight(true); } catch (e) {}
+                                      }
+                                      const first = notAnswered[0];
+                                      const el = document.querySelector(`[data-quiz-id="${first}"]`);
+                                      if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                      setUnansweredCount(notAnswered.length);
+                                      setShowUnansweredModal(true);
+                                      return;
+                                    }
+
+                                    finalSubmitActionRef.current = async () => {
+                                      setFinalSubmitting(true);
+                                      setSubmissionResult(null);
+                                      const results = [];
+                                      for (const id of ids) {
+                                        try {
+                                          const api = quizRegistry.current[id];
+                                          if (!api) continue;
+                                          const res = await api.submit();
+                                          results.push({ id, ok: true, result: res });
+                                        } catch (e) {
+                                          results.push({ id, ok: false, error: e?.message || String(e) });
+                                        }
+                                      }
+                                      setFinalSubmitting(false);
+                                      setFinalSubmitted(true);
+                                      setSubmissionResult(results);
+                                    };
+
+                                    allowShowFinalConfirmRef.current = true;
+                                    setShowFinalConfirm(true);
+                                  }}
+                                >
+                                  {finalSubmitted ? 'Đã nộp thành công' : (finalSubmitting ? 'Đang gửi...' : 'Nộp toàn bộ bài kiểm tra')}
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={{ padding: 20, background: '#f8f9fa', borderRadius: 8, textAlign: 'center', color: '#666' }}>
+                              Đang tải danh sách câu hỏi...
+                            </div>
+                          )}
+                          
+                          {/* Modals for quiz submission */}
+                          <AlertModal
+                            isOpen={showUnansweredModal}
+                            title="Có câu hỏi chưa trả lời"
+                            onClose={() => setShowUnansweredModal(false)}
+                            cancelLabel="Đóng"
+                          >
+                            <p>{`Bạn còn ${unansweredCount} quiz chưa trả lời. Vui lòng hoàn thành trước khi nộp.`}</p>
+                          </AlertModal>
+
+                          <AlertModal
+                            isOpen={showFinalConfirm && !!allowShowFinalConfirmRef.current}
+                            title="Xác nhận nộp toàn bộ"
+                            onClose={() => {
+                              allowShowFinalConfirmRef.current = false;
+                              setShowFinalConfirm(false);
+                            }}
+                            footerNode={(
+                              <ActionRow>
+                                <Button
+                                  variant="tertiary"
+                                  onClick={() => {
+                                    allowShowFinalConfirmRef.current = false;
+                                    setShowFinalConfirm(false);
+                                  }}
+                                >
+                                  Hủy
+                                </Button>
+                                <Button
+                                  onClick={async () => {
+                                    allowShowFinalConfirmRef.current = false;
+                                    setShowFinalConfirm(false);
+                                    if (finalSubmitActionRef.current) {
+                                      await finalSubmitActionRef.current();
+                                    }
+                                  }}
+                                >
+                                  Xác nhận nộp
+                                </Button>
+                              </ActionRow>
+                            )}
+                          >
+                            <p>Bạn có chắc chắn muốn nộp toàn bộ bài kiểm tra? Sau khi nộp, bạn không thể thay đổi câu trả lời.</p>
+                          </AlertModal>
+                        </div>
+                      ) : (
+                        <div style={{ textAlign: 'center', padding: 20, color: '#c33' }}>
+                          Không tìm thấy cấu hình đánh giá cuối khóa
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {/* Show selected content (video, slide, quiz) if chosen */}
                 {selectedContent && selectedContent.type === 'video' && (

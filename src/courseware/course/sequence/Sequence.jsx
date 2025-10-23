@@ -25,7 +25,7 @@ import messages from './messages';
 import HiddenAfterDue from './hidden-after-due';
 import { UnitNavigation } from './sequence-navigation';
 import SequenceContent from './SequenceContent';
-import { FinalEvaluationQuiz } from '../final-evaluation';
+import { FinalEvaluation } from '../final-evaluation';
 import { useFinalUnitDetection } from '../final-evaluation/hooks';
 
 const Sequence = ({
@@ -259,24 +259,11 @@ const Sequence = ({
             />
             {unitHasLoaded && renderUnitNavigation(false)}
             {isFinalUnit && unitHasLoaded && (
-              <div>
-                <FinalEvaluationQuiz 
-                  courseId={courseId} 
-                  sequenceId={sequenceId} 
-                  unitId={unitId}
-                />
-                {/* Fallback for testing */}
-                <Card className="mt-4 p-4 text-center" style={{backgroundColor: '#e3f2fd'}}>
-                  <h3>📝 Kiểm tra cuối khóa</h3>
-                  <p>Bạn đã hoàn thành tất cả bài học trong khóa học này!</p>
-                  <Button variant="primary" size="lg">
-                    Bắt đầu kiểm tra
-                  </Button>
-                  <div className="mt-2">
-                    <small className="text-muted">Final Unit Detected: {isFinalUnit ? 'Yes' : 'No'}</small>
-                  </div>
-                </Card>
-              </div>
+              <FinalEvaluation 
+                courseId={courseId} 
+                sequenceId={sequenceId} 
+                unitId={unitId}
+              />
             )}
           </div>
         </div>

@@ -225,3 +225,22 @@ export async function getFinalEvaluationResult(courseId) {
   const { data } = await getAuthenticatedHttpClient().get(url);
   return data;
 }
+
+/**
+ * Submit final evaluation project file
+ * @param {string} courseId - The course ID
+ * @param {File} file - The project file to upload (DOCX/PDF)
+ * @returns {Promise<Object>} Submission result
+ */
+export async function submitFinalEvaluationProject(courseId, file) {
+  const url = `${getConfig().LMS_BASE_URL}/api/course_home/v1/final_evaluation/${courseId}/project/submit`;
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  const { data } = await getAuthenticatedHttpClient().post(url, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return data;
+}
