@@ -43,11 +43,55 @@ const MediaListModal = ({
         }
 
         if (mediaType === 'questions') {
-          const res = await getUnitVerticalData(targetUnitId, { debug: false });
-          const children = res?.xblockInfo?.children || [];
-          const quizzes = children.filter(
-            (c) => c.category === 'problem' || c.category === 'quiz' || c.category === 'questions'
-          ).map((q) => ({ id: q.id, title: q.displayName || 'Quiz' }));
+          console.log('🔍 Loading questions for unit:', targetUnitId);
+          
+          // Try the unit media API first
+          try {
+            const res = await getUnitMedia(targetUnitId, 'questions');
+            console.log('📊 Questions media data:', res);
+            const list = Array.isArray(res) ? res : (res?.results || []);
+            
+            if (list && list.length > 0) {
+              console.log('✅ Found quizzes via media API:', list);
+              const quizzes = list.map((q) => ({ 
+                id: q.id, 
+                title: q.title || q.displayName || q.fileName || 'Quiz',
+                displayName: q.displayName || q.title,
+                ...q
+              }));
+              if (!cancelled) setItems(quizzes);
+              return; // Success - exit early
+            }
+          } catch (mediaError) {
+            console.log('⚠️ Media API failed, falling back to vertical data:', mediaError.message);
+          }
+          
+          // Fallback: Use vertical data to find problem blocks
+          console.log('🔄 Fallback: Loading questions from vertical data');
+          const verticalRes = await getUnitVerticalData(targetUnitId, { debug: true });
+          console.log('📊 Unit vertical data:', verticalRes);
+          
+          const children = verticalRes?.xblockInfo?.children || [];
+          console.log('👥 Unit children:', children);
+          
+          // Look for problem, quiz, or any block that might contain quiz content
+          const quizBlocks = children.filter(
+            (c) => c.category === 'problem' || 
+                   c.category === 'quiz' || 
+                   c.category === 'questions' ||
+                   c.category === 'openassessment' ||
+                   (c.displayName && c.displayName.toLowerCase().includes('quiz')) ||
+                   (c.displayName && c.displayName.toLowerCase().includes('kiểm tra'))
+          );
+          console.log('❓ Found quiz blocks:', quizBlocks);
+          
+          const quizzes = quizBlocks.map((q) => ({ 
+            id: q.id, 
+            title: q.displayName || 'Quiz',
+            displayName: q.displayName,
+            category: q.category
+          }));
+          console.log('✅ Processed quizzes:', quizzes);
           if (!cancelled) setItems(quizzes);
         } else {
           const res = await getUnitMedia(targetUnitId, mediaType);

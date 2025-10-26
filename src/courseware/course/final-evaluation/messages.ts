@@ -81,6 +81,16 @@ const messages = defineMessages({
     defaultMessage: 'Điểm số cuối cùng',
     description: 'Label for final score',
   },
+  minPassingScore: {
+    id: 'learn.course.final.evaluation.min.passing.score',
+    defaultMessage: 'Điểm tối thiểu để đạt',
+    description: 'Label for minimum passing score',
+  },
+  attemptsLeft: {
+    id: 'learn.course.final.evaluation.attempts.left',
+    defaultMessage: 'Số lần thử còn lại',
+    description: 'Label for attempts left',
+  },
   correctAnswers: {
     id: 'learn.course.final.evaluation.correct.answers',
     defaultMessage: 'Câu trả lời đúng',
@@ -90,6 +100,21 @@ const messages = defineMessages({
     id: 'learn.course.final.evaluation.quiz.completed.message',
     defaultMessage: 'Chúc mừng! Bạn đã hoàn thành bài kiểm tra cuối khóa. Kết quả của bạn đã được ghi nhận.',
     description: 'Message shown when quiz is completed successfully',
+  },
+  quizFailedMessage: {
+    id: 'learn.course.final.evaluation.quiz.failed.message',
+    defaultMessage: 'Bạn chưa đạt điểm tối thiểu. Bạn có thể thử lại nếu còn lượt.',
+    description: 'Message shown when quiz is failed',
+  },
+  retakeQuiz: {
+    id: 'learn.course.final.evaluation.retake.quiz',
+    defaultMessage: 'Làm lại bài kiểm tra',
+    description: 'Label for retake quiz button',
+  },
+  noAttemptsLeft: {
+    id: 'learn.course.final.evaluation.no.attempts.left',
+    defaultMessage: 'Bạn đã hết lượt thử. Vui lòng liên hệ giảng viên.',
+    description: 'Message when no attempts left',
   },
   multipleChoiceNote: {
     id: 'learn.course.final.evaluation.multiple.choice.note',
@@ -160,6 +185,26 @@ const messages = defineMessages({
     id: 'learn.course.final.evaluation.confirm.project.submission.message',
     defaultMessage: 'Bạn có chắc chắn muốn nộp bài thu hoạch này? Sau khi nộp bài, bạn sẽ không thể thay đổi.',
     description: 'Message asking for confirmation before submitting project',
+  },
+  timeRemaining: {
+    id: 'learn.course.final.evaluation.time.remaining',
+    defaultMessage: 'Thời gian còn lại',
+    description: 'Label for remaining time display',
+  },
+  timeExpired: {
+    id: 'learn.course.final.evaluation.time.expired',
+    defaultMessage: 'Hết thời gian!',
+    description: 'Warning when time has expired',
+  },
+  timeExpiredSubmit: {
+    id: 'learn.course.final.evaluation.time.expired.submit',
+    defaultMessage: 'Thời gian đã hết - Nộp bài',
+    description: 'Button text when time has expired',
+  },
+  timeExpiredMessage: {
+    id: 'learn.course.final.evaluation.time.expired.message',
+    defaultMessage: 'Thời gian làm bài đã hết. Bài kiểm tra sẽ được nộp tự động với câu trả lời hiện tại.',
+    description: 'Message explaining what happens when time expires',
   },
 });
 

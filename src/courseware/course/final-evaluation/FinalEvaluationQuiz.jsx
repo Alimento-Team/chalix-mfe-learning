@@ -31,9 +31,18 @@ const FinalEvaluationQuiz = ({ courseId, sequenceId, unitId }) => {
   const [submitting, setSubmitting] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
   const [result, setResult] = useState(null);
+  const [attemptsLeft, setAttemptsLeft] = useState(null);
+  const [minPassingScore, setMinPassingScore] = useState(null);
+  const [passed, setPassed] = useState(null);
   const [error, setError] = useState(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [hasExistingResult, setHasExistingResult] = useState(false);
+  
+  // Timer state
+  const [timeLimit, setTimeLimit] = useState(null); // in seconds
+  const [remainingTime, setRemainingTime] = useState(null);
+  const [timerActive, setTimerActive] = useState(false);
+  const [timerExpired, setTimerExpired] = useState(false);
 
   // Always log component render
   console.log('🎯 FinalEvaluationQuiz rendered with props:', { 
@@ -59,6 +68,35 @@ const FinalEvaluationQuiz = ({ courseId, sequenceId, unitId }) => {
       console.log('❌ Not loading config:', { isFinalUnit, courseId });
     }
   }, [isFinalUnit, courseId]);
+
+  // Timer countdown effect
+  useEffect(() => {
+    let interval = null;
+    if (timerActive && remainingTime > 0) {
+      interval = setInterval(() => {
+        setRemainingTime(prevTime => {
+          if (prevTime <= 1) {
+            setTimerActive(false);
+            setTimerExpired(true);
+            return 0;
+          }
+          return prevTime - 1;
+        });
+      }, 1000);
+    } else if (remainingTime === 0 && timerActive) {
+      setTimerActive(false);
+      setTimerExpired(true);
+    }
+    return () => clearInterval(interval);
+  }, [timerActive, remainingTime]);
+
+  // Auto-submit when time expires
+  useEffect(() => {
+    if (timerExpired && showQuiz && !result && !submitting) {
+      // Auto-submit with current answers when time expires
+      submitQuizAnswers();
+    }
+  }, [timerExpired, showQuiz, result, submitting]);
 
   const loadConfig = async () => {
     setLoading(true);
@@ -89,6 +127,13 @@ const FinalEvaluationQuiz = ({ courseId, sequenceId, unitId }) => {
         initialAnswers[question.id] = [];
       });
       setAnswers(initialAnswers);
+      
+      // Initialize timer
+      const quizTimeLimit = quiz.time_limit || evaluationConfig?.quiz_time_limit || 1800; // default 30 minutes
+      setTimeLimit(quizTimeLimit);
+      setRemainingTime(quizTimeLimit);
+      setTimerActive(true);
+      setTimerExpired(false);
     } catch (err) {
       setError(err?.response?.data?.message || intl.formatMessage(messages.quizLoadError));
     } finally {
@@ -127,14 +172,26 @@ const FinalEvaluationQuiz = ({ courseId, sequenceId, unitId }) => {
     setShowConfirmModal(true);
   };
 
-  const handleConfirmSubmit = async () => {
+  const submitQuizAnswers = async () => {
     setSubmitting(true);
     setError(null);
     setShowConfirmModal(false);
     
     try {
       const submissionResult = await submitFinalEvaluationQuiz(courseId, answers);
+      // store raw result
       setResult(submissionResult);
+      // normalize optional fields that backend may return with different names
+      const attempts = submissionResult.attempts_left ?? submissionResult.attemptsLeft ?? null;
+      const minScore = submissionResult.min_passing_score ?? submissionResult.minPassingScore ?? evaluationConfig?.quiz_passing_score ?? null;
+      setAttemptsLeft(attempts);
+      setMinPassingScore(minScore);
+      const resolvedScore = Math.round(submissionResult.score || 0);
+      const resolvedMin = minScore || 0;
+      const isPassed = (submissionResult.passed !== undefined)
+        ? Boolean(submissionResult.passed)
+        : (resolvedScore >= resolvedMin);
+      setPassed(isPassed);
       setShowQuiz(false);
     } catch (err) {
       setError(err?.response?.data?.message || intl.formatMessage(messages.submitError));
@@ -143,10 +200,28 @@ const FinalEvaluationQuiz = ({ courseId, sequenceId, unitId }) => {
     }
   };
 
+  const handleConfirmSubmit = async () => {
+    await submitQuizAnswers();
+  };
+
   const getScoreColor = (score) => {
     if (score >= 80) return 'success';
     if (score >= 60) return 'warning';
     return 'danger';
+  };
+
+  const formatTime = (seconds) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+
+  const getTimerColor = () => {
+    if (!remainingTime) return 'primary';
+    const percentage = (remainingTime / timeLimit) * 100;
+    if (percentage <= 10) return 'danger';
+    if (percentage <= 25) return 'warning';
+    return 'success';
   };
 
   // Debug logging
@@ -203,7 +278,7 @@ const FinalEvaluationQuiz = ({ courseId, sequenceId, unitId }) => {
     return (
       <Card className="mt-4 p-4">
         <div className="text-center">
-          <CheckCircle className="text-success mb-3" size="lg" />
+          <CheckCircle className={`mb-3 ${passed ? 'text-success' : 'text-danger'}`} size="lg" />
           <h3>{intl.formatMessage(messages.quizCompleted)}</h3>
           
           <div className="mt-4">
@@ -224,6 +299,12 @@ const FinalEvaluationQuiz = ({ courseId, sequenceId, unitId }) => {
                     variant={getScoreColor(score)}
                     className="mt-2"
                   />
+                  <div className="mt-3 text-muted">
+                    {intl.formatMessage(messages.minPassingScore)}: {minPassingScore ?? '—'}%
+                  </div>
+                  <div className="mt-1 text-muted">
+                    {intl.formatMessage(messages.attemptsLeft)}: {attemptsLeft ?? '—'}
+                  </div>
                 </Card>
               </div>
             </div>
@@ -231,8 +312,23 @@ const FinalEvaluationQuiz = ({ courseId, sequenceId, unitId }) => {
 
           <div className="mt-4">
             <p className="text-muted">
-              {intl.formatMessage(messages.quizCompletedMessage)}
+              {passed ? intl.formatMessage(messages.quizCompletedMessage) : intl.formatMessage(messages.quizFailedMessage)}
             </p>
+
+            {!passed && (
+              <div className="mt-3">
+                {attemptsLeft > 0 ? (
+                  <Button
+                    variant="primary"
+                    onClick={handleStartQuiz}
+                  >
+                    {intl.formatMessage(messages.retakeQuiz)}
+                  </Button>
+                ) : (
+                  <Alert variant="warning">{intl.formatMessage(messages.noAttemptsLeft)}</Alert>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </Card>
@@ -244,7 +340,35 @@ const FinalEvaluationQuiz = ({ courseId, sequenceId, unitId }) => {
     return (
       <div className="mt-4">
         <Card className="p-4">
-          <h3 className="mb-4">{intl.formatMessage(messages.finalEvaluationTitle)}</h3>
+          <div className="d-flex justify-content-between align-items-center mb-4">
+            <h3>{intl.formatMessage(messages.finalEvaluationTitle)}</h3>
+            
+            {/* Timer Display */}
+            {timerActive && remainingTime !== null && (
+              <div className="text-right">
+                <div className={`h4 mb-1 text-${getTimerColor()}`}>
+                  <i className="fa fa-clock-o mr-2"></i>
+                  {formatTime(remainingTime)}
+                </div>
+                <ProgressBar 
+                  now={(remainingTime / timeLimit) * 100} 
+                  variant={getTimerColor()}
+                  style={{ height: '6px', width: '200px' }}
+                />
+                <small className="text-muted">
+                  {intl.formatMessage(messages.timeRemaining)}
+                </small>
+              </div>
+            )}
+            
+            {/* Time Expired Warning */}
+            {timerExpired && (
+              <Alert variant="danger" className="mb-0">
+                <i className="fa fa-exclamation-triangle mr-2"></i>
+                {intl.formatMessage(messages.timeExpired)}
+              </Alert>
+            )}
+          </div>
           
           {error && (
             <Alert variant="danger" className="mb-3">
@@ -294,17 +418,27 @@ const FinalEvaluationQuiz = ({ courseId, sequenceId, unitId }) => {
               variant="primary"
               size="lg"
               onClick={handleSubmitAttempt}
-              disabled={submitting}
+              disabled={submitting || timerExpired}
             >
               {submitting ? (
                 <>
                   <Spinner animation="border" size="sm" className="mr-2" />
                   {intl.formatMessage(messages.submitting)}
                 </>
+              ) : timerExpired ? (
+                intl.formatMessage(messages.timeExpiredSubmit)
               ) : (
                 intl.formatMessage(messages.submitQuiz)
               )}
             </Button>
+            
+            {timerExpired && (
+              <div className="mt-3">
+                <Alert variant="warning">
+                  {intl.formatMessage(messages.timeExpiredMessage)}
+                </Alert>
+              </div>
+            )}
           </div>
         </Card>
 
@@ -368,6 +502,8 @@ const FinalEvaluationQuiz = ({ courseId, sequenceId, unitId }) => {
 
 FinalEvaluationQuiz.propTypes = {
   courseId: PropTypes.string.isRequired,
+  sequenceId: PropTypes.string,
+  unitId: PropTypes.string,
 };
 
 export default FinalEvaluationQuiz;

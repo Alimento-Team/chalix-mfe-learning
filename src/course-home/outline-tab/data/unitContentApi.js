@@ -32,6 +32,7 @@ export const unitMediaApiUrl = (unitId, mediaType) => {
   // Convert singular to plural to match CMS API pattern (video -> videos, slide -> slides)
   const pluralMediaType = mediaType === 'video' ? 'videos' : 
                          mediaType === 'slide' ? 'slides' : 
+                         mediaType === 'questions' ? 'quizzes' :
                          mediaType + 's';
   return `${getLmsContentApiBaseUrl()}/api/course_home/v1/content/units/${encoded}/${pluralMediaType}/`;
 };

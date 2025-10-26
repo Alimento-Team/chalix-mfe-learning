@@ -106,6 +106,12 @@ const CourseOutlineView = () => {
   const [finalEvaluationLoading, setFinalEvaluationLoading] = useState(false);
   const [uploadedFile, setUploadedFile] = useState(null);
   const [uploadError, setUploadError] = useState(null);
+  // Quiz timer and results state
+  const [quizTimeLimit, setQuizTimeLimit] = useState(null); // in seconds
+  const [quizStartTime, setQuizStartTime] = useState(null);
+  const [quizRemainingTime, setQuizRemainingTime] = useState(null);
+  const [quizResults, setQuizResults] = useState(null); // { score, correct_answers, total_questions, passed, attempts_used, attempts_remaining, max_attempts }
+  const quizTimerIntervalRef = useRef(null);
 
   // Dev-only: trace when the final confirm modal is requested to help debug accidental opens.
   useEffect(() => {
@@ -116,6 +122,33 @@ const CourseOutlineView = () => {
       console.trace && console.trace('showFinalConfirm trace');
     }
   }, [showFinalConfirm]);
+
+  // Quiz timer effect
+  useEffect(() => {
+    if (quizStartTime && quizTimeLimit && !finalSubmitted) {
+      // Start timer countdown
+      quizTimerIntervalRef.current = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - quizStartTime) / 1000);
+        const remaining = Math.max(0, quizTimeLimit - elapsed);
+        setQuizRemainingTime(remaining);
+        
+        if (remaining <= 0) {
+          // Time's up - auto submit
+          clearInterval(quizTimerIntervalRef.current);
+          if (finalSubmitActionRef.current && !finalSubmitted) {
+            console.log('⏰ Time expired - auto submitting quiz');
+            finalSubmitActionRef.current();
+          }
+        }
+      }, 1000);
+      
+      return () => {
+        if (quizTimerIntervalRef.current) {
+          clearInterval(quizTimerIntervalRef.current);
+        }
+      };
+    }
+  }, [quizStartTime, quizTimeLimit, finalSubmitted]);
 
   // Fetch course data preferring the LMS aggregate endpoint, with fallbacks
   useEffect(() => {
@@ -402,14 +435,27 @@ const CourseOutlineView = () => {
 
   // Determine whether Chalix course config says final evaluation is a quiz
   const finalEvaluationIsQuiz = useMemo(() => {
+    // If final evaluation config explicitly disabled it (due to 404 error), return false
+    if (finalEvaluationConfig?.evaluation_type === null && finalEvaluationConfig?.enabled === false) {
+      console.debug('finalEvaluationIsQuiz: FALSE (disabled due to error fallback)', { finalEvaluationConfig });
+      return false;
+    }
+    
+    // First, check if final_evaluation_type is explicitly set to 'quiz'
+    if (courseInfo?.final_evaluation_type === 'quiz') {
+      console.debug('finalEvaluationIsQuiz: TRUE (explicit final_evaluation_type = quiz)', { courseInfo });
+      return true;
+    }
+    
+    // Otherwise, fall back to text-based detection
     const candidates = [courseInfo?.course_type, courseInfo?.final_evaluation_type, courseInfo?.course_type_name, courseInfo?.type].filter(Boolean);
     const combined = String((candidates.join(' ') || '')).toLowerCase();
-    const isQuiz = /quiz|trắc nghiệm|làm bài trắc nghiệm|làm kiểm tra/.test(combined) || combined.includes('quiz');
+    const isQuiz = /quiz|trắc nghiệm|làm bài trắc nghiệm|làm kiểm tra|kiểm tra cuối/.test(combined) || combined.includes('quiz');
     // debug
     // eslint-disable-next-line no-console
     console.debug('finalEvaluationIsQuiz check', { candidates, combined, isQuiz, courseInfo, selectedUnit });
     return isQuiz;
-  }, [courseInfo]);
+  }, [courseInfo, finalEvaluationConfig]);
 
   // Helper to format a course date value to "DD/mm/YYYY".
   // Accepts Date objects, ISO strings, or timestamps. Returns 'Chưa đặt' when falsy.
@@ -583,6 +629,29 @@ const CourseOutlineView = () => {
       setQuizList([]);
     }
   }, [selectedUnitId, debugEnabled]);
+
+  // Pre-fetch final evaluation config when final unit is detected
+  useEffect(() => {
+    if (isFinalUnit && courseId && !finalEvaluationConfig) {
+      console.log('🔍 Pre-fetching final evaluation config for final unit');
+      getAuthenticatedHttpClient()
+        .get(`${getConfig().LMS_BASE_URL}/api/course_home/v1/final_evaluation/${courseId}/config`)
+        .then((response) => {
+          console.log('✅ Pre-fetched final evaluation config:', response.data);
+          console.log('🕐 Time limit fields in config:', {
+            quiz_time_limit: response.data?.quiz_time_limit,
+            time_limit: response.data?.time_limit,
+            final_evaluation_quiz_time_limit: response.data?.final_evaluation_quiz_time_limit,
+            final_evaluation_time_limit: response.data?.final_evaluation_time_limit,
+            allFields: Object.keys(response.data || {})
+          });
+          setFinalEvaluationConfig(response.data);
+        })
+        .catch((err) => {
+          console.error('❌ Error pre-fetching final evaluation config:', err);
+        });
+    }
+  }, [isFinalUnit, courseId, finalEvaluationConfig]);
 
   // If we detect final unit + quiz-mode, ensure video/slide are cleared and the UI focuses on quizzes.
   useEffect(() => {
@@ -895,85 +964,99 @@ const CourseOutlineView = () => {
                         </div>
                       ))}
 
-                      {/* Quiz card for non-final units */}
-                      <div style={{ background: '#f8fafd', border: '1.5px solid #b2b2b2', borderRadius: 8, padding: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                          {(() => {
-                            const UnitIcon = getContentIcon('questions');
-                            return <UnitIcon style={{ fontSize: 28 }} />;
-                          })()}
-                          <div>
-                            <div style={{ fontWeight: 600 }}>{typeLabel.questions}</div>
-                            <div style={{ fontSize: 13, color: '#555' }}>{selectedUnit.title} - Bấm để xem {typeLabel.questions}</div>
+                      {/* Quiz card for non-final units only */}
+                      {!isFinalUnit && (
+                        <div style={{ background: '#f8fafd', border: '1.5px solid #b2b2b2', borderRadius: 8, padding: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            {(() => {
+                              const UnitIcon = getContentIcon('questions');
+                              return <UnitIcon style={{ fontSize: 28 }} />;
+                            })()}
+                            <div>
+                              <div style={{ fontWeight: 600 }}>{typeLabel.questions}</div>
+                              <div style={{ fontSize: 13, color: '#555' }}>{selectedUnit.title} - Bấm để xem {typeLabel.questions}</div>
+                            </div>
                           </div>
+                          <button
+                            type="button"
+                            style={{ background: '#0070d2', color: '#fff', border: 'none', borderRadius: 4, padding: '8px 18px', fontWeight: 600, fontSize: 15, cursor: 'pointer' }}
+                            onClick={() => {
+                              allowShowFinalConfirmRef.current = false;
+                              setShowFinalConfirm(false);
+                              if (quizList && quizList.length > 0) {
+                                setShowQuizListInline(true);
+                                setSelectedContent({ ...quizList[0], type: 'questions' });
+                              } else {
+                                setModalType('questions');
+                                setModalOpen(true);
+                              }
+                            }}
+                          >
+                            Xem
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          style={{ background: '#0070d2', color: '#fff', border: 'none', borderRadius: 4, padding: '8px 18px', fontWeight: 600, fontSize: 15, cursor: 'pointer' }}
-                          onClick={() => {
-                            allowShowFinalConfirmRef.current = false;
-                            setShowFinalConfirm(false);
-                            if (quizList && quizList.length > 0) {
-                              setShowQuizListInline(true);
-                              setSelectedContent({ ...quizList[0], type: 'questions' });
-                            } else {
-                              setModalType('questions');
-                              setModalOpen(true);
-                            }
-                          }}
-                        >
-                          Xem
-                        </button>
-                      </div>
+                      )}
                     </>
                   )}
 
-                  {/* Inline Final Evaluation Submission */}
-                  {isFinalUnit && !showFinalEvaluation && (
+                  {/* Direct Quiz Launcher */}
+                  {(() => {
+                    console.log('🔍 Direct Quiz Launcher conditions:', {
+                      isFinalUnit,
+                      showFinalEvaluation,
+                      finalEvaluationIsQuiz,
+                      showQuizListInline,
+                      shouldShow: isFinalUnit && !showFinalEvaluation && finalEvaluationIsQuiz && !showQuizListInline
+                    });
+                    return isFinalUnit && !showFinalEvaluation && finalEvaluationIsQuiz && !showQuizListInline;
+                  })() && (
                     <div style={{ marginTop: 16, padding: 16, background: '#e3f2fd', border: '2px solid #0070d2', borderRadius: 8 }}>
                       <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, color: '#0070d2' }}>
-                        🎓 Kiểm tra cuối khóa
+                        🎓 Bài kiểm tra cuối bài
                       </div>
                       <div style={{ fontSize: 14, color: '#555', marginBottom: 12 }}>
-                        {finalEvaluationIsQuiz ? 'Làm bài kiểm tra đánh giá kiến thức toàn khóa học' : 'Nộp bài thu hoạch của bạn'}
+                        Làm bài kiểm tra đánh giá kiến thức toàn khóa học
                       </div>
                       <button
                         type="button"
                         style={{ background: '#0070d2', color: '#fff', border: 'none', borderRadius: 4, padding: '10px 24px', fontWeight: 600, fontSize: 15, cursor: 'pointer', width: '100%' }}
                         onClick={async () => {
-                          setShowFinalEvaluation(true);
+                          console.log('🚀 Starting quiz directly');
                           setFinalEvaluationLoading(true);
+                          
                           try {
-                            // Fetch final evaluation config
-                            const response = await getAuthenticatedHttpClient().get(
-                              `${getConfig().LMS_BASE_URL}/api/course_home/v1/final_evaluation/${courseId}/config`
-                            );
-                            setFinalEvaluationConfig(response.data);
+                            // Load quizzes and show them directly
+                            const res = await getUnitMedia(selectedUnitId, 'questions');
+                            const list = Array.isArray(res) ? res : (res?.results || []);
                             
-                            // If it's a quiz type, fetch the quiz list from the API
-                            if (response.data?.evaluation_type === 'quiz' && selectedUnit?.id) {
-                              try {
-                                console.log('Fetching quizzes for unit:', selectedUnit.id);
-                                const quizRes = await getAuthenticatedHttpClient().get(
-                                  `${getConfig().LMS_BASE_URL}/api/course_home/v1/content/units/${selectedUnit.id}/quizzes/`
-                                );
-                                const quizzes = quizRes.data?.results || quizRes.data || [];
-                                console.log('Found quizzes from API:', quizzes);
-                                setQuizList(quizzes);
-                              } catch (err) {
-                                console.error('Error loading quizzes from API:', err);
-                                setQuizList([]);
-                              }
+                            if (list && list.length > 0) {
+                              console.log('✅ Found', list.length, 'quizzes, going directly to quiz');
+                              
+                              // Go directly to QuizRenderer without showing intermediate UI
+                              setShowQuizListInline(true);
+                              setSelectedContent({ 
+                                id: 'combined-quiz', 
+                                type: 'questions', 
+                                title: 'Bài kiểm tra cuối bài',
+                                courseId: courseId,
+                                quizList: list,
+                                finalEvaluationConfig: finalEvaluationConfig
+                              });
+                              
+                              // Don't show the Final Evaluation UI that contains the "Kiểm tra cuối khóa" section
+                              // setShowFinalEvaluation(true); // Remove this line
+                            } else {
+                              setUploadError('Không tìm thấy bài kiểm tra nào');
                             }
-                          } catch (err) {
-                            console.error('Error loading final evaluation:', err);
-                            setUploadError('Không thể tải thông tin đánh giá cuối khóa');
+                          } catch (error) {
+                            console.error('❌ Error loading quiz:', error);
+                            setUploadError('Không thể tải bài kiểm tra. Vui lòng thử lại.');
                           } finally {
                             setFinalEvaluationLoading(false);
                           }
                         }}
-                      >
-                        {finalEvaluationIsQuiz ? '🚀 Bắt đầu kiểm tra' : '📄 Nộp bài thu hoạch'}
+                    >
+                        🚀 Bắt đầu kiểm tra
                       </button>
                     </div>
                   )}
@@ -1120,6 +1203,134 @@ const CourseOutlineView = () => {
                           <div style={{ fontWeight: 600, fontSize: 18, marginBottom: 12, color: '#0070d2' }}>
                             📝 {finalEvaluationConfig.title || 'Bài kiểm tra cuối khóa'}
                           </div>
+                          
+                          {/* Timer Display */}
+                          {quizRemainingTime !== null && !finalSubmitted && (
+                            <div style={{ marginBottom: 16 }}>
+                              <div style={{ 
+                                padding: 12, 
+                                background: quizRemainingTime < 300 ? '#fff3cd' : '#e3f2fd', 
+                                border: `2px solid ${quizRemainingTime < 300 ? '#ffc107' : '#0070d2'}`, 
+                                borderRadius: 8, 
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 8
+                              }}>
+                                <span style={{ fontSize: 24 }}>⏱️</span>
+                                <span style={{ fontSize: 18, fontWeight: 600, color: quizRemainingTime < 300 ? '#856404' : '#0070d2' }}>
+                                  Thời gian còn lại: {Math.floor(quizRemainingTime / 60)}:{String(quizRemainingTime % 60).padStart(2, '0')}
+                                </span>
+                              </div>
+                              
+                              {/* Quiz Info: Attempts and Passing Grade */}
+                              <div style={{ 
+                                display: 'grid', 
+                                gridTemplateColumns: '1fr 1fr', 
+                                gap: 12, 
+                                marginTop: 12 
+                              }}>
+                                {finalEvaluationConfig?.max_attempts > 0 && (
+                                  <div style={{ 
+                                    padding: 12, 
+                                    background: '#f8f9fa', 
+                                    border: '1px solid #dee2e6', 
+                                    borderRadius: 6,
+                                    textAlign: 'center'
+                                  }}>
+                                    <div style={{ fontSize: 13, color: '#666', marginBottom: 4 }}>Số lần làm bài</div>
+                                    <div style={{ fontSize: 20, fontWeight: 600, color: '#333' }}>
+                                      {finalEvaluationConfig.attempts_used || 0}/{finalEvaluationConfig.max_attempts}
+                                    </div>
+                                    <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
+                                      Còn {(finalEvaluationConfig.max_attempts - (finalEvaluationConfig.attempts_used || 0))} lần
+                                    </div>
+                                  </div>
+                                )}
+                                {finalEvaluationConfig?.passing_grade > 0 && (
+                                  <div style={{ 
+                                    padding: 12, 
+                                    background: '#f8f9fa', 
+                                    border: '1px solid #dee2e6', 
+                                    borderRadius: 6,
+                                    textAlign: 'center'
+                                  }}>
+                                    <div style={{ fontSize: 13, color: '#666', marginBottom: 4 }}>Điểm để đạt</div>
+                                    <div style={{ fontSize: 20, fontWeight: 600, color: '#28a745' }}>
+                                      {finalEvaluationConfig.passing_grade}%
+                                    </div>
+                                    <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
+                                      Điểm tối thiểu
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Quiz Results Display */}
+                          {quizResults && finalSubmitted && (
+                            <div style={{ 
+                              padding: 20, 
+                              background: quizResults.passed ? '#d4edda' : '#f8d7da', 
+                              border: `2px solid ${quizResults.passed ? '#c3e6cb' : '#f5c6cb'}`, 
+                              borderRadius: 8, 
+                              marginBottom: 16 
+                            }}>
+                              <div style={{ fontSize: 20, fontWeight: 600, color: quizResults.passed ? '#155724' : '#721c24', marginBottom: 12, textAlign: 'center' }}>
+                                {quizResults.passed ? '🎉 Chúc mừng! Bạn đã đạt yêu cầu' : '😞 Bạn chưa đạt yêu cầu'}
+                              </div>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                <div style={{ padding: 12, background: 'rgba(255,255,255,0.7)', borderRadius: 6 }}>
+                                  <div style={{ fontSize: 14, color: '#555', marginBottom: 4 }}>Điểm số</div>
+                                  <div style={{ fontSize: 24, fontWeight: 600, color: quizResults.passed ? '#155724' : '#721c24' }}>
+                                    {quizResults.score?.toFixed(1) || 0}%
+                                  </div>
+                                </div>
+                                <div style={{ padding: 12, background: 'rgba(255,255,255,0.7)', borderRadius: 6 }}>
+                                  <div style={{ fontSize: 14, color: '#555', marginBottom: 4 }}>Số câu đúng</div>
+                                  <div style={{ fontSize: 24, fontWeight: 600, color: quizResults.passed ? '#155724' : '#721c24' }}>
+                                    {quizResults.correct_answers || 0}/{quizResults.total_questions || 0}
+                                  </div>
+                                </div>
+                                {quizResults.passing_score && (
+                                  <div style={{ padding: 12, background: 'rgba(255,255,255,0.7)', borderRadius: 6 }}>
+                                    <div style={{ fontSize: 14, color: '#555', marginBottom: 4 }}>Điểm tối thiểu</div>
+                                    <div style={{ fontSize: 20, fontWeight: 600, color: '#555' }}>
+                                      {quizResults.passing_score}%
+                                    </div>
+                                  </div>
+                                )}
+                                {quizResults.max_attempts > 0 && (
+                                  <div style={{ padding: 12, background: 'rgba(255,255,255,0.7)', borderRadius: 6 }}>
+                                    <div style={{ fontSize: 14, color: '#555', marginBottom: 4 }}>Số lần làm bài</div>
+                                    <div style={{ fontSize: 20, fontWeight: 600, color: '#555' }}>
+                                      {quizResults.attempts_used || 0}/{quizResults.max_attempts}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                              {quizResults.message && (
+                                <div style={{ marginTop: 12, padding: 12, background: 'rgba(255,255,255,0.7)', borderRadius: 6, textAlign: 'center', fontSize: 14, color: '#555' }}>
+                                  {quizResults.message}
+                                </div>
+                              )}
+                              {quizResults.attempts_remaining !== undefined && quizResults.attempts_remaining > 0 && !quizResults.passed && (
+                                <div style={{ marginTop: 12, padding: 12, background: 'rgba(255,255,255,0.7)', borderRadius: 6, textAlign: 'center', fontSize: 14, color: '#856404', fontWeight: 600 }}>
+                                  ⚠️ Còn {quizResults.attempts_remaining} lần làm bài. Vui lòng thử lại!
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          
+                          {/* Error Display */}
+                          {uploadError && (
+                            <div style={{ padding: 16, background: '#f8d7da', border: '2px solid #f5c6cb', borderRadius: 8, marginBottom: 16, color: '#721c24' }}>
+                              <div style={{ fontWeight: 600, marginBottom: 8 }}>❌ Lỗi</div>
+                              <div>{uploadError}</div>
+                            </div>
+                          )}
+                          
                           {finalEvaluationConfig.description && (
                             <div style={{ padding: 16, background: '#f8f9fa', borderRadius: 8, marginBottom: 16, fontSize: 14, color: '#333', lineHeight: 1.6 }}>
                               {finalEvaluationConfig.description}
@@ -1129,21 +1340,40 @@ const CourseOutlineView = () => {
                           {/* Display quiz list inline */}
                           {quizList && quizList.length > 0 ? (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: 16 }}>
-                              {quizList.map((q, idx) => (
-                                <div key={q.id || idx} style={{ background: '#fff', padding: 14, border: '1px solid #ddd', borderRadius: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                                  <QuizRenderer
-                                    selectedContent={{ ...q, type: 'questions' }}
-                                    unitId={selectedUnitId}
-                                    forceOpen={true}
-                                    onRegister={(id, api) => {
-                                      if (id && api) quizRegistry.current[id] = api;
-                                      else if (id && !api) delete quizRegistry.current[id];
-                                    }}
-                                    disabled={finalSubmitted}
-                                    showHeader={true}
-                                  />
-                                </div>
-                              ))}
+                              {quizList.map((q, idx) => {
+                                // Check if quiz object is empty
+                                const hasValidData = q && (q.id || q.title || q.questions);
+                                console.log(`Quiz ${idx}:`, q, 'hasValidData:', hasValidData);
+                                
+                                if (!hasValidData) {
+                                  return (
+                                    <div key={idx} style={{ background: '#fff3cd', padding: 14, border: '2px solid #ffc107', borderRadius: 8 }}>
+                                      <div style={{ fontWeight: 600, color: '#856404', marginBottom: 8 }}>
+                                        ⚠️ Câu hỏi {idx + 1}: Dữ liệu không hợp lệ
+                                      </div>
+                                      <div style={{ fontSize: 14, color: '#856404' }}>
+                                        Backend trả về dữ liệu trống. Vui lòng kiểm tra cấu hình bài kiểm tra.
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                
+                                return (
+                                  <div key={q.id || idx} style={{ background: '#fff', padding: 14, border: '1px solid #ddd', borderRadius: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                                    <QuizRenderer
+                                      selectedContent={{ ...q, type: 'questions' }}
+                                      unitId={selectedUnitId}
+                                      forceOpen={true}
+                                      onRegister={(id, api) => {
+                                        if (id && api) quizRegistry.current[id] = api;
+                                        else if (id && !api) delete quizRegistry.current[id];
+                                      }}
+                                      disabled={finalSubmitted}
+                                      showHeader={true}
+                                    />
+                                  </div>
+                                );
+                              })}
                               <div style={{ marginTop: 18, display: 'flex', gap: 12, alignItems: 'center' }}>
                                 <button
                                   type="button"
@@ -1178,20 +1408,59 @@ const CourseOutlineView = () => {
                                     finalSubmitActionRef.current = async () => {
                                       setFinalSubmitting(true);
                                       setSubmissionResult(null);
-                                      const results = [];
-                                      for (const id of ids) {
-                                        try {
-                                          const api = quizRegistry.current[id];
-                                          if (!api) continue;
-                                          const res = await api.submit();
-                                          results.push({ id, ok: true, result: res });
-                                        } catch (e) {
-                                          results.push({ id, ok: false, error: e?.message || String(e) });
+                                      setQuizResults(null);
+                                      
+                                      try {
+                                        // Collect all answers from quiz registry
+                                        const answers = {};
+                                        const ids = Object.keys(quizRegistry.current || {});
+                                        
+                                        for (const id of ids) {
+                                          try {
+                                            const api = quizRegistry.current[id];
+                                            if (!api) continue;
+                                            const userAnswers = api.getUserAnswers(); // Assumes quiz API has this method
+                                            if (userAnswers) {
+                                              answers[id] = userAnswers;
+                                            }
+                                          } catch (e) {
+                                            console.error('Error getting answers for quiz', id, e);
+                                          }
                                         }
+                                        
+                                        console.log('📤 Submitting final evaluation quiz with answers:', answers);
+                                        
+                                        // Submit to backend API
+                                        const response = await getAuthenticatedHttpClient().post(
+                                          `${getConfig().LMS_BASE_URL}/api/course_home/v1/final_evaluation/${courseId}/quiz/submit`,
+                                          { answers }
+                                        );
+                                        
+                                        console.log('✅ Quiz submission response:', response.data);
+                                        
+                                        // Stop timer
+                                        if (quizTimerIntervalRef.current) {
+                                          clearInterval(quizTimerIntervalRef.current);
+                                        }
+                                        
+                                        // Set results
+                                        setQuizResults(response.data);
+                                        setFinalSubmitted(true);
+                                        
+                                        // Set submission results based on final evaluation response
+                                        // No need to submit individual quizzes since final evaluation handles everything
+                                        const results = ids.map(id => ({
+                                          id,
+                                          ok: true,
+                                          result: response.data // Use the final evaluation result for all quizzes
+                                        }));
+                                        setSubmissionResult(results);
+                                      } catch (error) {
+                                        console.error('❌ Error submitting final evaluation quiz:', error);
+                                        setUploadError(error?.response?.data?.error || error?.message || 'Lỗi khi nộp bài kiểm tra');
+                                      } finally {
+                                        setFinalSubmitting(false);
                                       }
-                                      setFinalSubmitting(false);
-                                      setFinalSubmitted(true);
-                                      setSubmissionResult(results);
                                     };
 
                                     allowShowFinalConfirmRef.current = true;
@@ -1318,14 +1587,20 @@ const CourseOutlineView = () => {
                 )}
                 {selectedContent && selectedContent.type === 'questions' && (
                   <>
+                    {console.log('🔍 Rendering questions content:', {
+                      selectedContent,
+                      isFinalUnit,
+                      quizListLength: quizList?.length,
+                      showQuizListInline
+                    })}
                     {/* If final unit & quiz-mode: render all quizzes fully (display every quiz's QuizRenderer) */}
-                    {isFinalUnit && finalEvaluationIsQuiz && quizList && quizList.length > 0 ? (
+                    {isFinalUnit && quizList && quizList.length > 0 ? (
                       showQuizListInline ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: 12 }}>
                           {quizList.map((q, idx) => (
                             <div key={q.id || idx} style={{ background: '#fff', padding: 14, borderRadius: 8, boxShadow: '0 1px 0 rgba(0,0,0,0.04)' }}>
                               <QuizRenderer
-                                selectedContent={{ ...q, type: 'questions' }}
+                                selectedContent={{ ...q, type: 'questions', courseId: courseId, quizList: quizList }}
                                 unitId={selectedUnitId}
                                 forceOpen={true}
                                 onRegister={(id, api) => {
@@ -1460,14 +1735,19 @@ const CourseOutlineView = () => {
                 )}
               </div>
               {/* Media list modal – loads on demand to mirror authoring behavior */}
-              {['video', 'slide', 'questions'].includes(modalType) && (
+              {['video', 'slide', 'questions'].includes(modalType) && (console.log('🎯 Rendering modal:', { modalType, modalOpen, selectedUnit: selectedUnit?.id }) || true) && (
                 <MediaListModal
                   open={modalOpen}
-                  onClose={() => { setModalOpen(false); setModalType(null); }}
+                  onClose={() => { 
+                    console.log('🔴 Closing quiz modal');
+                    setModalOpen(false); 
+                    setModalType(null); 
+                  }}
                   unit={selectedUnit}
                   mediaType={modalType}
                   title={`Chọn ${typeLabel[modalType] || ''} để phát`}
                   onSelect={(normalized) => {
+                    console.log('✅ Quiz selected:', normalized);
                     setSelectedContent(normalized);
                   }}
                 />
