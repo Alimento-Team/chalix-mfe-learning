@@ -14,7 +14,71 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
   const [highlighted, setHighlighted] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(null);
   const [timerStarted, setTimerStarted] = useState(false);
+  const [attemptStatus, setAttemptStatus] = useState(null);
   const doSubmitRef = useRef(null);
+
+  // Function to get current attempt status
+  const getAttemptStatus = useCallback(async () => {
+    if (!selectedContent?.courseId) return null;
+    
+    try {
+      const client = getAuthenticatedHttpClient();
+      const statusUrl = `${getConfig().LMS_BASE_URL}/api/course_home/v1/final_evaluation/${selectedContent.courseId}/attempt-status`;
+      const resp = await client.get(statusUrl, { headers: { 'USE-JWT-COOKIE': 'true' } });
+      
+      console.log('📊 Attempt status:', resp.data);
+      return resp.data;
+    } catch (error) {
+      console.error('❌ Error getting attempt status:', error);
+      return null;
+    }
+  }, [selectedContent?.courseId]);
+
+  // Function to start a new attempt
+  const startNewAttempt = useCallback(async () => {
+    if (!selectedContent?.courseId) return null;
+    
+    try {
+      const client = getAuthenticatedHttpClient();
+      const startUrl = `${getConfig().LMS_BASE_URL}/api/course_home/v1/final_evaluation/${selectedContent.courseId}/attempt-status`;
+      const resp = await client.post(startUrl, {}, { headers: { 'USE-JWT-COOKIE': 'true' } });
+      
+      console.log('✅ New attempt started:', resp.data);
+      return resp.data;
+    } catch (error) {
+      console.error('❌ Error starting new attempt:', error);
+      throw error;
+    }
+  }, [selectedContent?.courseId]);
+
+  // Add CSS animations for floating timer
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes timerPulse {
+        0% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.8; transform: scale(1.05); }
+        100% { opacity: 1; transform: scale(1); }
+      }
+    `;
+    document.head.appendChild(style);
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
+  // Load attempt status for final evaluation quizzes
+  useEffect(() => {
+    const isFinalEvaluationQuiz = selectedContent?.courseId && selectedContent?.quizList;
+    if (isFinalEvaluationQuiz) {
+      getAttemptStatus().then(status => {
+        if (status) {
+          setAttemptStatus(status);
+          console.log('📊 Loaded attempt status:', status);
+        }
+      });
+    }
+  }, [selectedContent?.courseId, getAttemptStatus]);
 
   // Load ALL quizzes - either from provided list or by fetching from unit
   useEffect(() => {
@@ -22,6 +86,12 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
     const loadAllQuizzes = async () => {
       if (!opened || !unitId) {
         console.log('QuizRenderer: Skipping load - opened:', opened, 'unitId:', unitId);
+        return;
+      }
+      
+      // Skip if quiz is already loaded to prevent re-fetching
+      if (quiz && !loading) {
+        console.log('QuizRenderer: Quiz already loaded, skipping fetch');
         return;
       }
       
@@ -197,7 +267,7 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
     };
     loadAllQuizzes();
     return () => { cancelled = true; };
-  }, [unitId, opened, selectedContent]);
+  }, [unitId, opened, selectedContent?.quizList?.length, selectedContent?.courseId]);
 
   // Timer effect for quiz time limit
   useEffect(() => {
@@ -253,6 +323,25 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
     try {
       const client = getAuthenticatedHttpClient();
       
+      // For final evaluation quizzes, start a new attempt first
+      const isFinalEvaluationQuiz = selectedContent?.courseId && selectedContent?.quizList;
+      if (isFinalEvaluationQuiz) {
+        try {
+          const attemptData = await startNewAttempt();
+          console.log('📝 Started new attempt before submission:', attemptData);
+        } catch (attemptError) {
+          console.error('❌ Failed to start new attempt:', attemptError);
+          // If we can't start a new attempt, show the error and stop
+          if (attemptError.response?.status === 400) {
+            const errorData = attemptError.response.data;
+            setError(errorData.error || 'Cannot start new attempt');
+            setLoading(false);
+            return null;
+          }
+          // For other errors, continue with submission (might be existing attempt)
+        }
+      }
+      
       // Group answers by quizId for multiple quiz submission
       const answersByQuiz = {};
       let totalPointsEarned = 0;
@@ -274,9 +363,6 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
       });
       
       console.log('📤 Submitting answers for multiple quizzes:', answersByQuiz);
-      
-      // Check if this is a final evaluation quiz (has courseId and quizList)
-      const isFinalEvaluationQuiz = selectedContent?.courseId && selectedContent?.quizList;
       
       if (isFinalEvaluationQuiz) {
         // For final evaluation quizzes, submit all answers at once to the final evaluation endpoint
@@ -527,6 +613,17 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
       
       console.log('📊 Combined quiz submission result:', processedResult);
       setResult(processedResult);
+      
+      // Refresh attempt status after successful submission for final evaluation quizzes
+      if (isFinalEvaluationQuiz) {
+        getAttemptStatus().then(status => {
+          if (status) {
+            setAttemptStatus(status);
+            console.log('🔄 Refreshed attempt status after submission:', status);
+          }
+        });
+      }
+      
       return processedResult;
       
     } catch (e) {
@@ -625,8 +722,73 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
   if (!quiz) return <div>Không có quiz để hiển thị.</div>;
 
   return (
-    <div data-quiz-id={unitId} style={{ marginTop: 12, padding: 14, background: highlighted ? '#fff6f6' : '#fff', borderRadius: 8 }}>
-      {showHeader && (
+    <>
+      {/* Floating Timer - only show when quiz is active and has time remaining */}
+      {timeRemaining !== null && timeRemaining > 0 && (
+        <div 
+          role="timer" 
+          aria-live="polite" 
+          aria-label={`Thời gian còn lại: ${formatTime(timeRemaining)}`}
+          style={{
+            position: 'fixed',
+            top: window.innerWidth <= 768 ? '10px' : '20px',
+            right: window.innerWidth <= 768 ? '10px' : '20px',
+            zIndex: 1000,
+            background: timeRemaining < 300 ? '#fee2e2' : '#e3f2fd',
+            border: `2px solid ${timeRemaining < 300 ? '#dc2626' : '#1565c0'}`,
+            borderRadius: '12px',
+            padding: window.innerWidth <= 768 ? '8px 12px' : '12px 16px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            fontSize: window.innerWidth <= 768 ? '14px' : '16px',
+            fontWeight: 700,
+            color: timeRemaining < 300 ? '#dc2626' : '#1565c0',
+            textAlign: 'center',
+            minWidth: window.innerWidth <= 768 ? '140px' : '180px',
+            maxWidth: window.innerWidth <= 768 ? '180px' : '220px',
+            backdropFilter: 'blur(10px)',
+            userSelect: 'none',
+            transition: 'all 0.3s ease',
+            cursor: 'default',
+            transform: timeRemaining < 60 ? 'scale(1.02)' : 'scale(1)'
+          }}
+        >
+          <div style={{ 
+            fontSize: '12px', 
+            marginBottom: '2px', 
+            opacity: 0.8,
+            textTransform: 'uppercase',
+            letterSpacing: '0.5px'
+          }}>
+            Thời gian còn lại
+          </div>
+          <div style={{ 
+            fontSize: '20px', 
+            fontFamily: 'monospace, Arial, sans-serif',
+            marginBottom: '2px',
+            animation: timeRemaining < 60 ? 'timerPulse 1s infinite ease-in-out' : 'none'
+          }}>
+            ⏰ {formatTime(timeRemaining)}
+          </div>
+          {timeRemaining < 300 && timeRemaining > 60 && (
+            <div style={{ fontSize: '11px', opacity: 0.9 }}>
+              ⚠️ Còn ít thời gian!
+            </div>
+          )}
+          {timeRemaining <= 60 && (
+            <div style={{ 
+              fontSize: '11px', 
+              color: '#dc2626',
+              fontWeight: 'bold',
+              textShadow: '0 0 4px rgba(220, 38, 38, 0.5)'
+            }}>
+              🚨 SẮP HẾT GIỜ!
+            </div>
+          )}
+        </div>
+      )}
+    
+      <div data-quiz-id={unitId} style={{ marginTop: 12, padding: 14, background: highlighted ? '#fff6f6' : '#fff', borderRadius: 8 }}>
+        {showHeader && (
         <div style={{ marginBottom: 20 }}>
           <h3 style={{ marginTop: 0, color: '#0070d2' }}>📝 Kiểm tra cuối khóa</h3>
           
@@ -648,6 +810,47 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
             }}>
               ⏰ Thời gian còn lại: {formatTime(timeRemaining)}
             </div>
+            
+            {/* Attempt Status Display */}
+            {attemptStatus && (
+              <div style={{ 
+                background: '#fff', 
+                padding: '12px', 
+                borderRadius: 6, 
+                marginBottom: 12,
+                border: '1px solid #e0e0e0'
+              }}>
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: '#333'
+                }}>
+                  <span>🔄 Số lần làm còn lại: {
+                    attemptStatus.attempts_remaining !== null 
+                      ? `${attemptStatus.attempts_remaining} lần`
+                      : 'Không giới hạn'
+                  }</span>
+                  {attemptStatus.max_attempts > 0 && (
+                    <span style={{ color: '#666', fontSize: 12 }}>
+                      ({attemptStatus.attempts_used}/{attemptStatus.max_attempts})
+                    </span>
+                  )}
+                </div>
+                {attemptStatus.latest_score !== null && (
+                  <div style={{ 
+                    marginTop: 6, 
+                    fontSize: 12, 
+                    color: attemptStatus.latest_passed ? '#4caf50' : '#f44336'
+                  }}>
+                    Kết quả lần trước: {attemptStatus.latest_score.toFixed(1)}% 
+                    {attemptStatus.latest_passed ? ' ✅ Đạt' : ' ❌ Chưa đạt'}
+                  </div>
+                )}
+              </div>
+            )}
             
             {/* Quiz Stats */}
             <div style={{ 
@@ -871,7 +1074,8 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
           )}
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 };
 

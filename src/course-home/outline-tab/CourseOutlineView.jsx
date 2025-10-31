@@ -509,28 +509,12 @@ const CourseOutlineView = () => {
           return;
         }
 
-        // If this is the final unit and final evaluation is quiz, aggregate quizzes across all verticals
+        // If this is the final unit and final evaluation is quiz, don't pre-fetch quizzes
+        // User will click button to load them
         if (isFinalUnit && finalEvaluationIsQuiz) {
           setVideoList([]);
           setSlideList([]);
-          try {
-            const allQuizzes = [];
-            await Promise.all(verticals.map(async (v) => {
-              try {
-                const res = await getUnitVerticalData(v.id, { debug: debugEnabled });
-                const children = res?.xblockInfo?.children || [];
-                const quizzes = children.filter(
-                  c => c.category === 'problem' || c.category === 'quiz' || c.category === 'questions'
-                ).map(q => ({ id: q.id, title: q.displayName || q.display_name || 'Quiz', url: null }));
-                allQuizzes.push(...quizzes);
-              } catch (e) {
-                // continue
-              }
-            }));
-            setQuizList(allQuizzes);
-          } catch (e) {
-            setQuizList([]);
-          }
+          setQuizList([]); // Don't pre-fetch quizzes, let the button click handle it
           return;
         }
 
@@ -578,17 +562,11 @@ const CourseOutlineView = () => {
     // Only fetch for vertical/unit types using isUnitBlock helper
     else if (isUnitBlock(selectedUnit)) {
       console.log('Selected unit is a vertical/unit, fetching content directly:', selectedUnitId);
-      // If final unit & quiz-mode, don't fetch media; just fetch quizzes from this unit
+      // If final unit & quiz-mode, don't auto-fetch anything - user will click button to load
       if (isFinalUnit && finalEvaluationIsQuiz) {
         setVideoList([]);
         setSlideList([]);
-        getUnitVerticalData(selectedUnitId, { debug: debugEnabled }).then(res => {
-          const children = res?.xblockInfo?.children || [];
-          const quizzes = children.filter(
-            c => c.category === 'problem' || c.category === 'quiz' || c.category === 'questions'
-          ).map(q => ({ id: q.id, title: q.displayName || 'Quiz', url: null }));
-          setQuizList(quizzes);
-        }).catch(() => setQuizList([]));
+        setQuizList([]); // Don't pre-fetch quizzes, let the button click handle it
       } else {
         // Fetch videos
         getUnitMedia(selectedUnitId, 'video').then(res => {
@@ -653,20 +631,9 @@ const CourseOutlineView = () => {
     }
   }, [isFinalUnit, courseId, finalEvaluationConfig]);
 
-  // If we detect final unit + quiz-mode, ensure video/slide are cleared and the UI focuses on quizzes.
-  useEffect(() => {
-    if (isFinalUnit && finalEvaluationIsQuiz) {
-      // clear any previously selected non-quiz content
-      if (selectedContent && selectedContent.type && selectedContent.type !== 'questions') {
-        setSelectedContent(null);
-      }
-      // clear media lists (defensive)
-      setVideoList([]);
-      setSlideList([]);
-      // keep quiz list hidden until the user explicitly clicks 'Làm bài kiểm tra'
-      setShowQuizListInline(false);
-    }
-  }, [isFinalUnit, finalEvaluationIsQuiz, quizList]);
+  // No auto-cleanup effect needed - just let the button click handle showing the quiz
+  // This prevents infinite render loops
+
 
   // Map content type to icon
   const getContentIcon = (contentType) => {
@@ -999,17 +966,8 @@ const CourseOutlineView = () => {
                     </>
                   )}
 
-                  {/* Direct Quiz Launcher */}
-                  {(() => {
-                    console.log('🔍 Direct Quiz Launcher conditions:', {
-                      isFinalUnit,
-                      showFinalEvaluation,
-                      finalEvaluationIsQuiz,
-                      showQuizListInline,
-                      shouldShow: isFinalUnit && !showFinalEvaluation && finalEvaluationIsQuiz && !showQuizListInline
-                    });
-                    return isFinalUnit && !showFinalEvaluation && finalEvaluationIsQuiz && !showQuizListInline;
-                  })() && (
+                  {/* Quiz Access Button - Single step to access quiz */}
+                  {isFinalUnit && !showFinalEvaluation && finalEvaluationIsQuiz && !showQuizListInline && (
                     <div style={{ marginTop: 16, padding: 16, background: '#e3f2fd', border: '2px solid #0070d2', borderRadius: 8 }}>
                       <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, color: '#0070d2' }}>
                         🎓 Bài kiểm tra cuối bài
@@ -1021,7 +979,10 @@ const CourseOutlineView = () => {
                         type="button"
                         style={{ background: '#0070d2', color: '#fff', border: 'none', borderRadius: 4, padding: '10px 24px', fontWeight: 600, fontSize: 15, cursor: 'pointer', width: '100%' }}
                         onClick={async () => {
-                          console.log('🚀 Starting quiz directly');
+                          // Prevent multiple clicks
+                          if (finalEvaluationLoading) return;
+                          
+                          console.log('🚀 Starting quiz from button click');
                           setFinalEvaluationLoading(true);
                           
                           try {
@@ -1030,9 +991,9 @@ const CourseOutlineView = () => {
                             const list = Array.isArray(res) ? res : (res?.results || []);
                             
                             if (list && list.length > 0) {
-                              console.log('✅ Found', list.length, 'quizzes, going directly to quiz');
+                              console.log('✅ Found', list.length, 'quizzes, showing quiz interface');
                               
-                              // Go directly to QuizRenderer without showing intermediate UI
+                              // Go directly to QuizRenderer
                               setShowQuizListInline(true);
                               setSelectedContent({ 
                                 id: 'combined-quiz', 
@@ -1042,9 +1003,6 @@ const CourseOutlineView = () => {
                                 quizList: list,
                                 finalEvaluationConfig: finalEvaluationConfig
                               });
-                              
-                              // Don't show the Final Evaluation UI that contains the "Kiểm tra cuối khóa" section
-                              // setShowFinalEvaluation(true); // Remove this line
                             } else {
                               setUploadError('Không tìm thấy bài kiểm tra nào');
                             }
@@ -1055,8 +1013,8 @@ const CourseOutlineView = () => {
                             setFinalEvaluationLoading(false);
                           }
                         }}
-                    >
-                        🚀 Bắt đầu kiểm tra
+                      >
+                        Làm bài kiểm tra
                       </button>
                     </div>
                   )}
@@ -1343,7 +1301,6 @@ const CourseOutlineView = () => {
                               {quizList.map((q, idx) => {
                                 // Check if quiz object is empty
                                 const hasValidData = q && (q.id || q.title || q.questions);
-                                console.log(`Quiz ${idx}:`, q, 'hasValidData:', hasValidData);
                                 
                                 if (!hasValidData) {
                                   return (
@@ -1585,157 +1542,37 @@ const CourseOutlineView = () => {
                     <FileViewer fileUrl={selectedContent.fileUrl} fileName={selectedContent.title || ''} />
                   </React.Suspense>
                 )}
-                {selectedContent && selectedContent.type === 'questions' && (
+                {selectedContent && selectedContent.type === 'questions' && showQuizListInline && (
                   <>
-                    {console.log('🔍 Rendering questions content:', {
-                      selectedContent,
-                      isFinalUnit,
-                      quizListLength: quizList?.length,
-                      showQuizListInline
-                    })}
-                    {/* If final unit & quiz-mode: render all quizzes fully (display every quiz's QuizRenderer) */}
-                    {isFinalUnit && quizList && quizList.length > 0 ? (
-                      showQuizListInline ? (
+                    {/* Render quiz interface when showQuizListInline is true */}
+                    {selectedContent?.quizList && selectedContent.quizList.length > 0 && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: 12 }}>
-                          {quizList.map((q, idx) => (
-                            <div key={q.id || idx} style={{ background: '#fff', padding: 14, borderRadius: 8, boxShadow: '0 1px 0 rgba(0,0,0,0.04)' }}>
-                              <QuizRenderer
-                                selectedContent={{ ...q, type: 'questions', courseId: courseId, quizList: quizList }}
-                                unitId={selectedUnitId}
-                                forceOpen={true}
-                                onRegister={(id, api) => {
-                                  if (id && api) quizRegistry.current[id] = api;
-                                  else if (id && !api) delete quizRegistry.current[id];
-                                }}
-                                disabled={finalSubmitted}
-                                showHeader={true}
-                              />
-                            </div>
-                          ))}
-                        <div style={{ marginTop: 18, display: 'flex', gap: 12, alignItems: 'center' }}>
-                          <button
-                            type="button"
-                            className="btn btn-primary"
-                            disabled={finalSubmitting || finalSubmitted}
-                            onClick={async () => {
-                              // This handler is the only place that may request the final confirm modal.
-                              // Compute quiz ids and validate all answered before showing the modal.
-                              const ids = Object.keys(quizRegistry.current || {});
-                              const notAnswered = [];
-                              for (const id of ids) {
-                                try {
-                                  const api = quizRegistry.current[id];
-                                  if (!api) continue;
-                                  const answered = api.isAnswered();
-                                  if (!answered) notAnswered.push(id);
-                                } catch (e) {
-                                  notAnswered.push(id);
-                                }
-                              }
-
-                              // If any unanswered, highlight and show the unanswered modal and do NOT open final confirm.
-                              if (notAnswered.length > 0) {
-                                for (const id of notAnswered) {
-                                  try { const api = quizRegistry.current[id]; if (api) api.highlight(true); } catch (e) {}
-                                }
-                                const first = notAnswered[0];
-                                const el = document.querySelector(`[data-quiz-id="${first}"]`);
-                                if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                setUnansweredCount(notAnswered.length);
-                                setShowUnansweredModal(true);
-                                return;
-                              }
-
-                              // All quizzes answered: prepare the submission action and then explicitly allow and open the modal.
-                              finalSubmitActionRef.current = async () => {
-                                setFinalSubmitting(true);
-                                setSubmissionResult(null);
-                                const results = [];
-                                for (const id of ids) {
-                                  try {
-                                    const api = quizRegistry.current[id];
-                                    if (!api) continue;
-                                    const res = await api.submit();
-                                    results.push({ id, ok: true, result: res });
-                                  } catch (e) {
-                                    results.push({ id, ok: false, error: e?.message || String(e) });
-                                  }
-                                }
-                                setFinalSubmitting(false);
-                                setSubmissionResult(results);
-                              };
-
-                              // Intentionally requested by the final-submit button: set the guard and show
-                              allowShowFinalConfirmRef.current = true;
-                              // eslint-disable-next-line no-console
-                              console.trace && console.trace('Showing final confirm modal (intentional)');
-                              setShowFinalConfirm(true);
-                            }}
-                          >
-                            {finalSubmitted ? 'Đã nộp thành công' : (finalSubmitting ? 'Đang gửi...' : 'Nộp toàn bộ bài kiểm tra')}
-                          </button>
-                          {/* submissionResult intentionally not shown inline; displayed elsewhere */}
+                          {/* Render single combined QuizRenderer with all quizzes */}
+                          <div style={{ background: '#fff', padding: 14, borderRadius: 8, boxShadow: '0 1px 0 rgba(0,0,0,0.04)' }}>
+                            <QuizRenderer
+                              selectedContent={{
+                                type: 'questions',
+                                courseId: courseId,
+                                quizList: selectedContent.quizList,
+                                title: 'Bài kiểm tra cuối bài'
+                              }}
+                              unitId={selectedUnitId}
+                              forceOpen={true}
+                              onRegister={(id, api) => {
+                                if (id && api) quizRegistry.current[id] = api;
+                                else if (id && !api) delete quizRegistry.current[id];
+                              }}
+                              disabled={finalSubmitted}
+                              showHeader={true}
+                            />
+                          </div>
                         </div>
-                        {/* Unanswered modal */}
-                        <AlertModal
-                          isOpen={showUnansweredModal}
-                          title="Có câu hỏi chưa trả lời"
-                          onClose={() => setShowUnansweredModal(false)}
-                          cancelLabel="Đóng"
-                        >
-                          <p>{`Bạn còn ${unansweredCount} quiz chưa trả lời. Vui lòng hoàn thành trước khi nộp.`}</p>
-                        </AlertModal>
-
-                        {/* Final confirm modal */}
-                        <AlertModal
-                          isOpen={showFinalConfirm && !!allowShowFinalConfirmRef.current}
-                          title="Xác nhận nộp toàn bộ"
-                          onClose={() => {
-                            // Closing the modal should clear the intentional flag so accidental opens are blocked
-                            allowShowFinalConfirmRef.current = false;
-                            setShowFinalConfirm(false);
-                          }}
-                          // Provide an explicit footer so both buttons always render consistently
-                          footerNode={(
-                            <ActionRow>
-                              <Button
-                                variant="default"
-                                onClick={() => {
-                                  allowShowFinalConfirmRef.current = false;
-                                  setShowFinalConfirm(false);
-                                }}
-                              >
-                                Xem lại
-                              </Button>
-                              <Button
-                                variant="primary"
-                                onClick={async () => {
-                                  // Immediately mark final submitted in the UI, then run the submission actions.
-                                  setFinalSubmitted(true);
-                                  allowShowFinalConfirmRef.current = false;
-                                  setShowFinalConfirm(false);
-                                  if (finalSubmitActionRef.current) await finalSubmitActionRef.current();
-                                }}
-                              >
-                                Xác nhận
-                              </Button>
-                            </ActionRow>
-                          )}
-                          hasCloseButton
-                        >
-                          <p>Bạn có chắc chắn muốn nộp toàn bộ các bài kiểm tra? Hành động này sẽ ghi nhận toàn bộ kết quả và không thể hoàn tác.</p>
-                        </AlertModal>
-                      </div>
-                      ) : null
-                    ) : (
-                      // Non-final or fallback behavior: render the single selected quiz
-                      <QuizRenderer selectedContent={selectedContent} unitId={selectedUnitId} requireConfirm={false} />
                     )}
                   </>
                 )}
               </div>
               {/* Media list modal – loads on demand to mirror authoring behavior */}
-              {['video', 'slide', 'questions'].includes(modalType) && (console.log('🎯 Rendering modal:', { modalType, modalOpen, selectedUnit: selectedUnit?.id }) || true) && (
+              {['video', 'slide', 'questions'].includes(modalType) && (
                 <MediaListModal
                   open={modalOpen}
                   onClose={() => { 
