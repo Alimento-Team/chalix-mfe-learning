@@ -4,7 +4,6 @@ import { Container, Icon, Hyperlink } from '@openedx/paragon';
 import { CheckCircleLightOutline, ErrorOutline } from '@openedx/paragon/icons';
 import { useParams } from 'react-router-dom';
 
-import Header from '@edx/frontend-component-header';
 import { getConfig } from '@edx/frontend-platform';
 import { sendTrackEvent } from '@edx/frontend-platform/analytics';
 import { logError } from '@edx/frontend-platform/logging';
@@ -47,7 +46,7 @@ const PreferencesUnsubscribe = () => {
 
   return (
     <div style={{ height: '100vh' }}>
-      <Header />
+      {/* Header is rendered globally in index.jsx */}
       <Container size="xs" className="h-75 mx-auto my-auto">
         <div className="d-flex flex-row h-100">
           <div className="mx-auto my-auto">

@@ -1,8 +1,8 @@
 import PropTypes from 'prop-types';
 import { PluginSlot } from '@openedx/frontend-plugin-framework';
 
-import { LearningHeader as Header } from '@edx/frontend-component-header';
-
+// Chalix header is rendered at the top level in index.jsx
+// This slot is now empty to prevent duplicate headers
 const HeaderSlot = ({
   courseOrg, courseNumber, courseTitle, showUserDropdown,
 }) => (
@@ -19,12 +19,8 @@ const HeaderSlot = ({
       showUserDropdown,
     }}
   >
-    <Header
-      courseOrg={courseOrg}
-      courseNumber={courseNumber}
-      courseTitle={courseTitle}
-      showUserDropdown={showUserDropdown}
-    />
+    {/* Empty slot - Chalix header is rendered globally in index.jsx */}
+    {null}
   </PluginSlot>
 );
 

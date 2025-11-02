@@ -6,7 +6,7 @@ import {
 import { AppProvider, ErrorPage, PageWrap } from '@edx/frontend-platform/react';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 
 import { Helmet } from 'react-helmet';
 import { fetchDiscussionTab, fetchLiveTab } from './course-home/data/thunks';
@@ -37,8 +37,54 @@ import { DECODE_ROUTES, ROUTES } from './constants';
 import PreferencesUnsubscribe from './preferences-unsubscribe';
 import PageNotFound from './generic/PageNotFound';
 
+// Chalix MFE Header with User Popup
+// Note: Ensure `@chalix/frontend-component-header` is installed in the consumer app's package.json
+// The SCSS is already imported within the component itself
+import { ChalixHeaderWithUserPopup } from '@chalix/frontend-component-header';
+
 subscribe(APP_READY, () => {
   const root = createRoot(document.getElementById('root'));
+
+  // Handler for header navigation
+  const handleHeaderNavigation = (tab) => {
+    const config = getConfig();
+    const lmsBaseUrl = config.LMS_BASE_URL || '';
+    
+    // Determine the base URL based on environment
+    // In development, MFEs run on different ports
+    const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname.includes('local.openedx.io');
+    const protocol = window.location.protocol;
+    const hostname = window.location.hostname;
+    
+    switch (tab) {
+      case 'home':
+        // Navigate to LMS home
+        window.location.href = `${lmsBaseUrl}/`;
+        break;
+      case 'category':
+        // Navigate to course catalog
+        window.location.href = `${lmsBaseUrl}/courses`;
+        break;
+      case 'learning':
+        // Navigate to learner dashboard (Học tập - course list)
+        if (isDevelopment) {
+          window.location.href = `${protocol}//${hostname}:1996/learner-dashboard/`;
+        } else {
+          window.location.href = `${lmsBaseUrl}/dashboard`;
+        }
+        break;
+      case 'personalize':
+        // Navigate to personalized learning page (Cá nhân hóa)
+        if (isDevelopment) {
+          window.location.href = `${protocol}//${hostname}:1996/learner-dashboard/?tab=personalized`;
+        } else {
+          window.location.href = `${lmsBaseUrl}/dashboard?tab=personalized`;
+        }
+        break;
+      default:
+        break;
+    }
+  };
 
   root.render(
     <StrictMode>
@@ -50,6 +96,16 @@ subscribe(APP_READY, () => {
           <NoticesProvider>
             <UserMessagesProvider>
               <div className="app-container">
+                {/* Chalix Vietnamese header - replaces edX header */}
+                <ChalixHeaderWithUserPopup
+                  organizationTitle="PHẦN MỀM HỌC TẬP THÔNG MINH DÀNH CHO CÔNG CHỨC, VIÊN CHỨC"
+                  organizationName="CỤC HÀNG HẢI VÀ ĐƯỜNG THỦY NỘI ĐỊA VIỆT NAM"
+                  organizationLabel="Cơ Quan 1"
+                  searchPlaceholder="Nhập từ khóa tìm kiếm"
+                  baseApiUrl={getConfig().LMS_BASE_URL || ''}
+                  logoutUrl="/logout"
+                  onNavigate={handleHeaderNavigation}
+                />
                 <Routes>
                   <Route path="*" element={<PageWrap><PageNotFound /></PageWrap>} />
                   <Route path={ROUTES.UNSUBSCRIBE} element={<PageWrap><GoalUnsubscribe /></PageWrap>} />
