@@ -13,10 +13,12 @@ import {
 
 import { getConfig } from '@edx/frontend-platform';
 import { getAuthenticatedHttpClient } from '@edx/frontend-platform/auth';
+import { AppContext } from '@edx/frontend-platform/react';
 import urls from '../../data/services/lms/urls';
 import './CourseOutlineView.scss';
 import ReviewWidget from './widgets/ReviewWidget';
 import { getOutlineTabData, getCourseHomeCourseMetadata } from '../data/api';
+import FacialExpressionRecorder from '../../courseware/course/facial-expression-recorder';
 import { 
   getUnitMedia, 
   getUnitVerticalData, 
@@ -70,6 +72,7 @@ const filterAndDeduplicateVideos = (list) => {
 const CourseOutlineView = () => {
   // All hooks must be at the top level, before any conditional returns
   const { courseId } = useSelector(state => state.courseHome);
+  const { authenticatedUser } = React.useContext(AppContext);
   const [selectedModuleIndex, setSelectedModuleIndex] = useState(0);
   const [courseData, setCourseData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -89,6 +92,8 @@ const CourseOutlineView = () => {
   const [videoList, setVideoList] = useState([]);
   const [slideList, setSlideList] = useState([]);
   const [quizList, setQuizList] = useState([]);
+  // Facial expression recorder state
+  const [showFacialRecorder, setShowFacialRecorder] = useState(false);
   // Registry for quiz renderers: { [quizId]: api }
   const quizRegistry = useRef({});
   const [finalSubmitting, setFinalSubmitting] = useState(false);
@@ -149,6 +154,29 @@ const CourseOutlineView = () => {
       };
     }
   }, [quizStartTime, quizTimeLimit, finalSubmitted]);
+
+  // Activate facial expression recorder when video or slide content is being viewed
+  useEffect(() => {
+    console.log('Facial Expression Recorder - Content changed:', {
+      selectedContent,
+      type: selectedContent?.type,
+      authenticatedUser: !!authenticatedUser,
+    });
+    
+    if (selectedContent && authenticatedUser) {
+      const isVideoOrSlide = selectedContent.type === 'video' || selectedContent.type === 'slide';
+      if (isVideoOrSlide) {
+        console.log('Facial Expression Recorder - ACTIVATING for', selectedContent.type);
+        setShowFacialRecorder(true);
+      } else {
+        console.log('Facial Expression Recorder - Deactivating (not video/slide)');
+        setShowFacialRecorder(false);
+      }
+    } else {
+      console.log('Facial Expression Recorder - Deactivating (no content or not authenticated)');
+      setShowFacialRecorder(false);
+    }
+  }, [selectedContent, authenticatedUser]);
 
   // Fetch course data preferring the LMS aggregate endpoint, with fallbacks
   useEffect(() => {
@@ -1605,6 +1633,19 @@ const CourseOutlineView = () => {
         </div>
       </div>
       {/* Course level review footer removed — use topic-level review inside right panel */}
+      
+      {/* Facial Expression Recorder - records learner's facial expressions while viewing video/slide content */}
+      {showFacialRecorder && selectedContent && (
+        <FacialExpressionRecorder
+          courseId={courseId}
+          unitId={selectedContent.id || selectedContent.blockId || 'unknown'}
+          isActive={showFacialRecorder}
+          onError={(error) => {
+            console.error('Facial expression recorder error:', error);
+            // Don't block the learning experience
+          }}
+        />
+      )}
     </div>
   );
 };

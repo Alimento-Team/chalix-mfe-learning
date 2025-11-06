@@ -1,0 +1,120 @@
+.facial-expression-recorder {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+
+    .webcam-container {
+        position: relative;
+        width: 160px;
+        height: 120px;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        background-color: #000;
+
+        .webcam-preview {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        &.permission-denied,
+        &.permission-loading {
+            background-color: #1e293b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            .permission-message {
+                text-align: center;
+                padding: 12px;
+                color: #fff;
+
+                .permission-icon {
+                    font-size: 32px;
+                    margin-bottom: 8px;
+                }
+
+                .permission-text {
+                    font-size: 11px;
+                    font-weight: 500;
+                    margin-bottom: 8px;
+                    line-height: 1.3;
+                }
+
+                .permission-button {
+                    background-color: #3b82f6;
+                    color: #fff;
+                    border: none;
+                    border-radius: 4px;
+                    padding: 6px 12px;
+                    font-size: 11px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: background-color 0.2s;
+
+                    &:hover {
+                        background-color: #2563eb;
+                    }
+
+                    &:active {
+                        background-color: #1d4ed8;
+                    }
+                }
+            }
+        }
+
+        .recording-indicator {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            background-color: rgba(220, 38, 38, 0.9);
+            border-radius: 4px;
+
+            .recording-dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background-color: #fff;
+                animation: pulse 1.5s ease-in-out infinite;
+            }
+
+            .recording-text {
+                color: #fff;
+                font-size: 11px;
+                font-weight: 600;
+                text-transform: uppercase;
+            }
+        }
+    }
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.4;
+    }
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+    .facial-expression-recorder {
+        bottom: 10px;
+        right: 10px;
+
+        .webcam-container {
+            width: 120px;
+            height: 90px;
+        }
+    }
+}

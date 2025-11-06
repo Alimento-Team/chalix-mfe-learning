@@ -14,6 +14,7 @@ import ContentIFrame from './ContentIFrame';
 import { modelKeys, views } from './constants';
 import { useExamAccess, useShouldDisplayHonorCode } from './hooks';
 import { getIFrameUrl } from './urls';
+import FacialExpressionRecorder from '../../facial-expression-recorder';
 // Removed UnitTitleSlot import since we're not using it anymore
 
 const Unit = ({
@@ -44,6 +45,33 @@ const Unit = ({
   }));
 
   const iframeUrl = getUrl();
+  
+  // State for facial expression recorder
+  const [showRecorder, setShowRecorder] = React.useState(false);
+  const [recorderError, setRecorderError] = React.useState(null);
+
+  // Activate recorder immediately when unit loads and user is authenticated
+  React.useEffect(() => {
+    console.log('Facial Expression Recorder - Checking conditions:', {
+      shouldDisplayHonorCode,
+      blockAccess: examAccess.blockAccess,
+      authenticatedUser: !!authenticatedUser,
+    });
+    
+    if (!shouldDisplayHonorCode && !examAccess.blockAccess && authenticatedUser) {
+      console.log('Facial Expression Recorder - ACTIVATING');
+      setShowRecorder(true);
+    } else {
+      console.log('Facial Expression Recorder - NOT ACTIVATING');
+      setShowRecorder(false);
+    }
+  }, [shouldDisplayHonorCode, examAccess.blockAccess, authenticatedUser, id]);
+
+  const handleRecorderError = (error) => {
+    console.error('Facial expression recorder error:', error);
+    setRecorderError(error);
+    // Don't block the learning experience, just log the error
+  };
 
   return (
     <div className="unit" style={{ margin: '0', padding: '0' }}>
@@ -59,6 +87,15 @@ const Unit = ({
         title={unit.title}
         courseId={courseId}
       />
+      {/* Facial Expression Recorder - records learner's facial expressions while viewing content */}
+      {showRecorder && (
+        <FacialExpressionRecorder
+          courseId={courseId}
+          unitId={id}
+          isActive={showRecorder}
+          onError={handleRecorderError}
+        />
+      )}
     </div>
   );
 };
