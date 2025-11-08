@@ -42,21 +42,17 @@ const FacialExpressionRecorder = ({
     if (storedData) {
       try {
         const data = JSON.parse(storedData);
-        const recordingAge = Date.now() - data.timestamp;
         const recordingDuration = data.duration || 0;
         
-        // Check if recording is recent (within 24 hours) and meets minimum duration
-        const is24HoursOld = recordingAge < 24 * 60 * 60 * 1000;
+        // Check if recording meets minimum duration
         const meetsMinDuration = recordingDuration >= MIN_RECORDING_DURATION;
         
         console.log('Previous recording check:', {
           duration: recordingDuration / 1000,
-          age: recordingAge / (60 * 1000),
           meetsMinDuration,
-          is24HoursOld,
         });
         
-        return is24HoursOld && meetsMinDuration;
+        return meetsMinDuration;
       } catch (error) {
         console.error('Error parsing stored recording data:', error);
         localStorage.removeItem(storageKey);
