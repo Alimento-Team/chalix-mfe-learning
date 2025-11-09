@@ -517,6 +517,10 @@ const CourseOutlineView = () => {
   // Fetch real content when selectedUnit changes
   // This must be before any early returns to avoid hook order errors
   useEffect(() => {
+    // Reset content display when changing topics
+    setSelectedContent(null);
+    setShowQuizListInline(false);
+    
     if (!selectedUnitId || !selectedUnit) {
       setVideoList([]);
       setSlideList([]);
@@ -969,25 +973,47 @@ const CourseOutlineView = () => {
                             })()}
                             <div>
                               <div style={{ fontWeight: 600 }}>{typeLabel.questions}</div>
-                              <div style={{ fontSize: 13, color: '#555' }}>{selectedUnit.title} - Bấm để xem {typeLabel.questions}</div>
+                              <div style={{ fontSize: 13, color: '#555' }}>{selectedUnit.title} - Bấm để làm {typeLabel.questions}</div>
                             </div>
                           </div>
                           <button
                             type="button"
                             style={{ background: '#0070d2', color: '#fff', border: 'none', borderRadius: 4, padding: '8px 18px', fontWeight: 600, fontSize: 15, cursor: 'pointer' }}
-                            onClick={() => {
+                            onClick={async () => {
                               allowShowFinalConfirmRef.current = false;
                               setShowFinalConfirm(false);
-                              if (quizList && quizList.length > 0) {
-                                setShowQuizListInline(true);
-                                setSelectedContent({ ...quizList[0], type: 'questions' });
-                              } else {
+                              
+                              console.log('🚀 Loading quiz for non-final unit');
+                              
+                              // Load quiz list
+                              try {
+                                const res = await getUnitMedia(selectedUnitId, 'questions');
+                                const list = Array.isArray(res) ? res : (res?.results || []);
+                                
+                                if (list && list.length > 0) {
+                                  console.log('✅ Found', list.length, 'quizzes, showing quiz interface');
+                                  
+                                  // Show quiz list below
+                                  setShowQuizListInline(true);
+                                  setSelectedContent({ 
+                                    id: 'combined-quiz', 
+                                    type: 'questions', 
+                                    title: selectedUnit.title,
+                                    quizList: list
+                                  });
+                                } else {
+                                  console.warn('⚠️ No quizzes found');
+                                  setModalType('questions');
+                                  setModalOpen(true);
+                                }
+                              } catch (error) {
+                                console.error('❌ Error loading quiz:', error);
                                 setModalType('questions');
                                 setModalOpen(true);
                               }
                             }}
                           >
-                            Xem
+                            Làm bài trắc nghiệm
                           </button>
                         </div>
                       )}
@@ -1580,9 +1606,10 @@ const CourseOutlineView = () => {
                             <QuizRenderer
                               selectedContent={{
                                 type: 'questions',
-                                courseId: courseId,
+                                // Only pass courseId for final evaluation quizzes
+                                courseId: selectedContent.courseId || undefined,
                                 quizList: selectedContent.quizList,
-                                title: 'Bài kiểm tra cuối bài'
+                                title: selectedContent.title || 'Bài kiểm tra'
                               }}
                               unitId={selectedUnitId}
                               forceOpen={true}

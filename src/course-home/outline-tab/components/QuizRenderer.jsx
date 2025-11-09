@@ -8,6 +8,15 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [quiz, setQuiz] = useState(null);
+  
+  // Debug log to check if courseId is being passed
+  console.log('🔍 QuizRenderer initialized with:', {
+    hasCourseId: !!selectedContent?.courseId,
+    courseId: selectedContent?.courseId,
+    title: selectedContent?.title,
+    forceOpen,
+    showHeader
+  });
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
   const [opened, setOpened] = useState(false);
@@ -15,6 +24,7 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
   const [timeRemaining, setTimeRemaining] = useState(null);
   const [timerStarted, setTimerStarted] = useState(false);
   const [attemptStatus, setAttemptStatus] = useState(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const doSubmitRef = useRef(null);
 
   // Function to get current attempt status
@@ -183,33 +193,48 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
               // Create a combined quiz object with all questions and course config
               console.log('🔍 Debug courseConfig:', courseConfig);
               
-              // Try multiple field name variations for time limit
-              const timeLimit = courseConfig?.quiz_time_limit || 
-                               courseConfig?.time_limit || 
-                               courseConfig?.final_evaluation_quiz_time_limit ||
-                               courseConfig?.final_evaluation_time_limit ||
-                               // If this is a final evaluation quiz (has courseId and quizList), use 60 minutes
-                               (selectedContent?.courseId && selectedContent?.quizList ? 60 : 30); // Default based on quiz type
+              // Only set time limit, passing score, and attempts for final evaluation quizzes
+              const isFinalEvaluationQuiz = selectedContent?.courseId && selectedContent?.quizList;
               
-              console.log('🕐 Time limit calculation:', {
-                quiz_time_limit: courseConfig?.quiz_time_limit,
-                time_limit: courseConfig?.time_limit,
-                final_evaluation_quiz_time_limit: courseConfig?.final_evaluation_quiz_time_limit,
-                final_evaluation_time_limit: courseConfig?.final_evaluation_time_limit,
-                finalValue: timeLimit
-              });
+              let timeLimit = null;
+              let passingScore = null;
+              let maxAttempts = null;
+              let attemptsUsed = 0;
+              let attemptsRemaining = null;
+              
+              if (isFinalEvaluationQuiz) {
+                // Try multiple field name variations for time limit
+                timeLimit = courseConfig?.quiz_time_limit || 
+                           courseConfig?.time_limit || 
+                           courseConfig?.final_evaluation_quiz_time_limit ||
+                           courseConfig?.final_evaluation_time_limit ||
+                           60; // Default 60 minutes for final evaluation
+                
+                passingScore = courseConfig?.quiz_passing_score || courseConfig?.passing_score || 70;
+                maxAttempts = courseConfig?.quiz_max_attempts || courseConfig?.max_attempts || 3;
+                attemptsUsed = courseConfig?.attempts_used || 0;
+                attemptsRemaining = courseConfig?.attempts_remaining || (maxAttempts - attemptsUsed);
+                
+                console.log('🕐 Time limit calculation (final evaluation):', {
+                  quiz_time_limit: courseConfig?.quiz_time_limit,
+                  time_limit: courseConfig?.time_limit,
+                  finalValue: timeLimit
+                });
+              } else {
+                console.log('📝 Regular topic quiz - no time limit, attempts, or passing score');
+              }
               
               const combinedQuiz = {
                 title: `Bài kiểm tra cuối bài - ${allQuizzes.length} phần`,
                 questions: totalQuestions,
                 total_questions: totalQuestions.length,
                 individual_quizzes: allQuizzes,
-                // Include course configuration for display
-                time_limit: timeLimit, // minutes
-                passing_score: courseConfig?.quiz_passing_score || courseConfig?.passing_score || 70, // percentage
-                max_attempts: courseConfig?.quiz_max_attempts || courseConfig?.max_attempts || 3,
-                attempts_used: courseConfig?.attempts_used || 0,
-                attempts_remaining: courseConfig?.attempts_remaining || (courseConfig?.quiz_max_attempts || courseConfig?.max_attempts || 3) - (courseConfig?.attempts_used || 0)
+                // Only include these for final evaluation quizzes
+                time_limit: timeLimit, // null for regular quizzes
+                passing_score: passingScore, // null for regular quizzes
+                max_attempts: maxAttempts, // null for regular quizzes
+                attempts_used: attemptsUsed,
+                attempts_remaining: attemptsRemaining
               };
               
               setQuiz(combinedQuiz);
@@ -269,9 +294,11 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
     return () => { cancelled = true; };
   }, [unitId, opened, selectedContent?.quizList?.length, selectedContent?.courseId]);
 
-  // Timer effect for quiz time limit
+  // Timer effect for quiz time limit - Only for final evaluation quizzes
   useEffect(() => {
-    if (!quiz || !quiz.time_limit || result || !opened) return;
+    // Only run timer for final evaluation quizzes (those with courseId)
+    const isFinalEvaluationQuiz = selectedContent?.courseId;
+    if (!isFinalEvaluationQuiz || !quiz || !quiz.time_limit || result || !opened) return;
     
     if (!timerStarted) {
       // Start timer when quiz opens
@@ -300,7 +327,7 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [quiz?.time_limit, result, opened, timerStarted, timeRemaining, disabled]);
+  }, [quiz?.time_limit, result, opened, timerStarted, timeRemaining, disabled, selectedContent?.courseId]);
 
   // Format timer display
   const formatTime = (seconds) => {
@@ -723,8 +750,8 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
 
   return (
     <>
-      {/* Floating Timer - only show when quiz is active and has time remaining */}
-      {timeRemaining !== null && timeRemaining > 0 && (
+      {/* Floating Timer - only show for final evaluation quizzes when quiz is active and has time remaining */}
+      {(selectedContent?.courseId) && timeRemaining !== null && timeRemaining > 0 && (
         <div 
           role="timer" 
           aria-live="polite" 
@@ -790,105 +817,72 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
       <div data-quiz-id={unitId} style={{ marginTop: 12, padding: 14, background: highlighted ? '#fff6f6' : '#fff', borderRadius: 8 }}>
         {showHeader && (
         <div style={{ marginBottom: 20 }}>
-          <h3 style={{ marginTop: 0, color: '#0070d2' }}>📝 Kiểm tra cuối khóa</h3>
+          <h3 style={{ marginTop: 0, color: '#0070d2' }}>
+            {selectedContent?.courseId ? '📝 Kiểm tra cuối khóa' : '📝 Bài trắc nghiệm'}
+          </h3>
           
-          {/* Timer and Quiz Info Section */}
-          <div style={{ 
-            background: '#e3f2fd', 
-            padding: '16px', 
-            borderRadius: 8, 
-            marginBottom: 16,
-            border: '1px solid #bbdefb'
-          }}>
-            {/* Timer Display */}
+          {/* Timer and Quiz Info Section - Only for final evaluation quizzes */}
+          {selectedContent?.courseId && timeRemaining !== null && (
             <div style={{ 
-              fontSize: 18, 
-              fontWeight: 700, 
-              color: timeRemaining !== null && timeRemaining < 300 ? '#dc2626' : '#1565c0', // Red when < 5 minutes
-              marginBottom: 12,
-              textAlign: 'center'
+              background: '#e3f2fd', 
+              padding: '16px', 
+              borderRadius: 8, 
+              marginBottom: 16,
+              border: '1px solid #bbdefb'
             }}>
-              ⏰ Thời gian còn lại: {formatTime(timeRemaining)}
-            </div>
-            
-            {/* Attempt Status Display */}
-            {attemptStatus && (
+              {/* Timer Display */}
               <div style={{ 
-                background: '#fff', 
-                padding: '12px', 
-                borderRadius: 6, 
+                fontSize: 18, 
+                fontWeight: 700, 
+                color: timeRemaining < 300 ? '#dc2626' : '#1565c0', // Red when < 5 minutes
                 marginBottom: 12,
-                border: '1px solid #e0e0e0'
+                textAlign: 'center'
               }}>
+                ⏰ Thời gian còn lại: {formatTime(timeRemaining)}
+              </div>
+              
+              {/* Attempt Status Display */}
+              {attemptStatus && (
                 <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center',
-                  fontSize: 14,
-                  fontWeight: 600,
-                  color: '#333'
+                  background: '#fff', 
+                  padding: '12px', 
+                  borderRadius: 6, 
+                  marginBottom: 12,
+                  border: '1px solid #e0e0e0'
                 }}>
-                  <span>🔄 Số lần làm còn lại: {
-                    attemptStatus.attempts_remaining !== null 
-                      ? `${attemptStatus.attempts_remaining} lần`
-                      : 'Không giới hạn'
-                  }</span>
-                  {attemptStatus.max_attempts > 0 && (
-                    <span style={{ color: '#666', fontSize: 12 }}>
-                      ({attemptStatus.attempts_used}/{attemptStatus.max_attempts})
-                    </span>
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: '#333'
+                  }}>
+                    <span>🔄 Số lần làm còn lại: {
+                      attemptStatus.attempts_remaining !== null 
+                        ? `${attemptStatus.attempts_remaining} lần`
+                        : 'Không giới hạn'
+                    }</span>
+                    {attemptStatus.max_attempts > 0 && (
+                      <span style={{ color: '#666', fontSize: 12 }}>
+                        ({attemptStatus.attempts_used}/{attemptStatus.max_attempts})
+                      </span>
+                    )}
+                  </div>
+                  {attemptStatus.latest_score !== null && (
+                    <div style={{ 
+                      marginTop: 6, 
+                      fontSize: 12, 
+                      color: attemptStatus.latest_passed ? '#4caf50' : '#f44336'
+                    }}>
+                      Kết quả lần trước: {attemptStatus.latest_score.toFixed(1)}% 
+                      {attemptStatus.latest_passed ? ' ✅ Đạt' : ' ❌ Chưa đạt'}
+                    </div>
                   )}
                 </div>
-                {attemptStatus.latest_score !== null && (
-                  <div style={{ 
-                    marginTop: 6, 
-                    fontSize: 12, 
-                    color: attemptStatus.latest_passed ? '#4caf50' : '#f44336'
-                  }}>
-                    Kết quả lần trước: {attemptStatus.latest_score.toFixed(1)}% 
-                    {attemptStatus.latest_passed ? ' ✅ Đạt' : ' ❌ Chưa đạt'}
-                  </div>
-                )}
-              </div>
-            )}
-            
-            {/* Quiz Stats */}
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: '1fr 1fr',
-              gap: '12px',
-              fontSize: 14,
-              color: '#1565c0'
-            }}>
-              <div>
-                📊 <strong>{quiz.total_questions} câu hỏi</strong> từ <strong>{quiz.individual_quizzes?.length || 1} phần</strong>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                🎯 Số lần làm còn lại: <strong style={{ 
-                  color: (quiz.attempts_remaining || 0) > 0 ? '#16a34a' : '#dc2626' 
-                }}>{quiz.attempts_remaining || quiz.max_attempts || 'Không giới hạn'} lần</strong>
-              </div>
+              )}
             </div>
-            
-            <div style={{ 
-              fontSize: 14,
-              color: '#1565c0',
-              marginTop: 8,
-              textAlign: 'center'
-            }}>
-              📈 Điểm tối thiểu để qua: <strong>{quiz.passing_score || 70}%</strong>
-            </div>
-            
-            <div style={{ 
-              fontSize: 12,
-              color: '#666',
-              marginTop: 8,
-              fontStyle: 'italic',
-              textAlign: 'center'
-            }}>
-              Bài kiểm tra đánh giá kiến thức toàn khóa học
-            </div>
-          </div>
+          )}
         </div>
       )}
       
@@ -975,11 +969,76 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
               opacity: loading ? 0.6 : 1,
               minWidth: 120
             }}
-            onClick={doSubmit}
+            onClick={() => setShowConfirmDialog(true)}
             disabled={loading}
           >
             {loading ? 'Đang nộp...' : 'Nộp bài'}
           </button>
+        </div>
+      )}
+      
+      {/* Confirmation Dialog */}
+      {showConfirmDialog && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            background: '#fff',
+            padding: '24px',
+            borderRadius: '12px',
+            maxWidth: '500px',
+            width: '90%',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)'
+          }}>
+            <h3 style={{ marginTop: 0, marginBottom: 16, color: '#0070d2' }}>⚠️ Xác nhận nộp bài</h3>
+            <p style={{ marginBottom: 20, fontSize: 15, lineHeight: '1.6' }}>
+              Bạn có chắc chắn muốn nộp bài? Sau khi nộp, bạn không thể thay đổi câu trả lời.
+            </p>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                style={{
+                  background: '#e5e7eb',
+                  color: '#374151',
+                  border: 'none',
+                  borderRadius: 6,
+                  padding: '10px 20px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+                onClick={() => setShowConfirmDialog(false)}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                style={{
+                  background: '#0070d2',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 6,
+                  padding: '10px 20px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+                onClick={() => {
+                  setShowConfirmDialog(false);
+                  doSubmit();
+                }}
+              >
+                Xác nhận nộp
+              </button>
+            </div>
+          </div>
         </div>
       )}
       
@@ -1000,27 +1059,33 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
             <strong>Số phần đã nộp:</strong> {result.successful_submissions || 0} / {result.total_quizzes || 0} phần
           </div>
           
-          <div style={{ marginBottom: 8 }}>
-            <strong>Điểm tối thiểu để qua:</strong> {result.passing_score || result.min_grade || 'Chưa xác định'} điểm
-          </div>
-          
-          <div style={{ marginBottom: 12 }}>
-            <strong>Số lần làm còn lại:</strong> 
-            <span style={{ 
-              marginLeft: 8, 
-              fontWeight: 700,
-              color: (result.attempts_remaining || 0) > 0 ? '#16a34a' : '#dc2626' 
-            }}>
-              {result.attempts_remaining !== undefined ? result.attempts_remaining : 'Không giới hạn'}
-            </span>
-            {result.max_attempts && (
-              <span style={{ color: '#666', marginLeft: 4 }}>
-                (đã dùng {result.attempts_used || 0}/{result.max_attempts})
-              </span>
-            )}
-          </div>
+          {/* Only show passing score and attempts for final evaluation quizzes */}
+          {selectedContent?.courseId && (
+            <>
+              <div style={{ marginBottom: 8 }}>
+                <strong>Điểm tối thiểu để qua:</strong> {result.passing_score || result.min_grade || 'Chưa xác định'} điểm
+              </div>
+              
+              <div style={{ marginBottom: 12 }}>
+                <strong>Số lần làm còn lại:</strong> 
+                <span style={{ 
+                  marginLeft: 8, 
+                  fontWeight: 700,
+                  color: (result.attempts_remaining || 0) > 0 ? '#16a34a' : '#dc2626' 
+                }}>
+                  {result.attempts_remaining !== undefined ? result.attempts_remaining : 'Không giới hạn'}
+                </span>
+                {result.max_attempts && (
+                  <span style={{ color: '#666', marginLeft: 4 }}>
+                    (đã dùng {result.attempts_used || 0}/{result.max_attempts})
+                  </span>
+                )}
+              </div>
+            </>
+          )}
 
-          {!result.passed && (result.attempts_remaining === undefined || result.attempts_remaining > 0) && (
+          {/* Retake button - only show for failed attempts with remaining attempts (final eval) or all non-final quizzes */}
+          {!result.passed && (!selectedContent?.courseId || result.attempts_remaining === undefined || result.attempts_remaining > 0) && (
             <button
               type="button"
               style={{ 
@@ -1032,13 +1097,16 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
                 fontWeight: 600, 
                 fontSize: 14,
                 cursor: 'pointer',
-                width: '100%'
+                width: '100%',
+                marginBottom: 12
               }}
               onClick={() => {
                 // Reset quiz state for retake
                 setResult(null);
                 setAnswers({});
                 setError(null);
+                setTimerStarted(false);
+                setTimeRemaining(null);
               }}
             >
               🔄 Làm lại
@@ -1053,13 +1121,15 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
               borderRadius: 6, 
               fontSize: 14,
               fontWeight: 600,
-              textAlign: 'center'
+              textAlign: 'center',
+              marginBottom: 12
             }}>
               🎉 Chúc mừng! Bạn đã hoàn thành bài kiểm tra thành công.
             </div>
           )}
 
-          {!result.passed && (result.attempts_remaining === 0) && (
+          {/* Out of attempts message - only for final evaluation quizzes */}
+          {selectedContent?.courseId && !result.passed && (result.attempts_remaining === 0) && (
             <div style={{ 
               background: '#fee2e2', 
               color: '#991b1b', 
@@ -1067,11 +1137,112 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
               borderRadius: 6, 
               fontSize: 14,
               fontWeight: 600,
-              textAlign: 'center'
+              textAlign: 'center',
+              marginBottom: 12
             }}>
               ⚠️ Bạn đã hết số lần làm bài. Vui lòng liên hệ giảng viên.
             </div>
           )}
+          
+          {/* Show correct answers section */}
+          <div style={{ 
+            marginTop: 16, 
+            padding: 16, 
+            background: '#f9fafb', 
+            borderRadius: 8, 
+            border: '1px solid #e5e7eb' 
+          }}>
+            <h4 style={{ marginTop: 0, marginBottom: 12, color: '#0070d2' }}>📋 Đáp án và kết quả chi tiết</h4>
+            {quiz.questions.map((q, idx) => {
+              const qid = String(q.id || q.pk || idx);
+              const userAnswer = answers[qid] || [];
+              const userAnswerArray = Array.isArray(userAnswer) ? userAnswer : [userAnswer];
+              
+              // Find correct answers
+              const correctChoices = (q.choices || []).filter(c => c.is_correct);
+              const correctIds = correctChoices.map(c => String(c.id || c.pk || c.choice_id));
+              
+              // Check if user's answer is correct
+              const isCorrect = correctIds.length > 0 && 
+                userAnswerArray.length === correctIds.length && 
+                userAnswerArray.every(a => correctIds.includes(String(a)));
+              
+              const questionNumber = idx + 1;
+              
+              return (
+                <div key={qid} style={{ 
+                  marginBottom: 16, 
+                  padding: 12, 
+                  background: '#fff', 
+                  borderRadius: 6,
+                  border: `2px solid ${isCorrect ? '#22c55e' : '#ef4444'}`
+                }}>
+                  <div style={{ 
+                    fontWeight: 600, 
+                    marginBottom: 8,
+                    color: isCorrect ? '#16a34a' : '#dc2626',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8
+                  }}>
+                    {isCorrect ? '✅' : '❌'} Câu {questionNumber}: {q.question_text || q.text || 'Câu hỏi'}
+                  </div>
+                  
+                  <div style={{ marginTop: 8 }}>
+                    {(q.choices || []).map((c) => {
+                      const cid = String(c.id || c.pk || c.choice_id);
+                      const isUserChoice = userAnswerArray.includes(cid);
+                      const isCorrectChoice = c.is_correct;
+                      
+                      let bgColor = '#fff';
+                      let borderColor = '#ddd';
+                      let icon = '';
+                      
+                      if (isCorrectChoice) {
+                        bgColor = '#dcfce7';
+                        borderColor = '#22c55e';
+                        icon = '✓ ';
+                      }
+                      
+                      if (isUserChoice && !isCorrectChoice) {
+                        bgColor = '#fee2e2';
+                        borderColor = '#ef4444';
+                        icon = '✗ ';
+                      }
+                      
+                      return (
+                        <div
+                          key={cid}
+                          style={{
+                            padding: '8px 12px',
+                            marginBottom: 6,
+                            background: bgColor,
+                            border: `1px solid ${borderColor}`,
+                            borderRadius: 4,
+                            fontSize: 14
+                          }}
+                        >
+                          <span style={{ fontWeight: isCorrectChoice || isUserChoice ? 600 : 400 }}>
+                            {icon}{c.text || c.choice_text || c.choice || ''}
+                          </span>
+                          {isUserChoice && (
+                            <span style={{ marginLeft: 8, fontSize: 12, color: '#666' }}>
+                              (Câu trả lời của bạn)
+                            </span>
+                          )}
+                          {isCorrectChoice && (
+                            <span style={{ marginLeft: 8, fontSize: 12, color: '#16a34a', fontWeight: 600 }}>
+                              (Đáp án đúng)
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
       </div>
