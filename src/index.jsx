@@ -48,38 +48,22 @@ subscribe(APP_READY, () => {
   // Handler for header navigation
   const handleHeaderNavigation = (tab) => {
     const config = getConfig();
-    const lmsBaseUrl = config.LMS_BASE_URL || '';
-    
-    // Determine the base URL based on environment
-    // In development, MFEs run on different ports
-    const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname.includes('local.openedx.io');
-    const protocol = window.location.protocol;
-    const hostname = window.location.hostname;
+    const lmsBaseUrl = config.LMS_BASE_URL;
+    const mfeBaseUrl = config.BASE_URL;
+    const learnerDashboardUrl = `${mfeBaseUrl}/learner-dashboard`;
     
     switch (tab) {
       case 'home':
-        // Navigate to LMS home
-        window.location.href = `${lmsBaseUrl}/`;
+        window.location.href = lmsBaseUrl;
         break;
       case 'category':
-        // Navigate to course catalog
-        window.location.href = `${lmsBaseUrl}/courses`;
+        window.location.href = learnerDashboardUrl;
         break;
       case 'learning':
-        // Navigate to learner dashboard (Học tập - course list)
-        if (isDevelopment) {
-          window.location.href = `${protocol}//${hostname}:1996/learner-dashboard/`;
-        } else {
-          window.location.href = `${lmsBaseUrl}/dashboard`;
-        }
+        window.location.href = lmsBaseUrl;
         break;
       case 'personalize':
-        // Navigate to personalized learning page (Cá nhân hóa)
-        if (isDevelopment) {
-          window.location.href = `${protocol}//${hostname}:1996/learner-dashboard/?tab=personalized`;
-        } else {
-          window.location.href = `${lmsBaseUrl}/dashboard?tab=personalized`;
-        }
+        window.location.href = `${learnerDashboardUrl}?tab=personalized`;
         break;
       default:
         break;
