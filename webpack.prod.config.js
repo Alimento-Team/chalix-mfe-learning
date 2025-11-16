@@ -4,6 +4,11 @@ const CopyPlugin = require('copy-webpack-plugin');
 
 const config = createConfig('webpack-prod');
 
+// Remove image minimizer plugin to avoid sharp dependency issues in Docker builds
+config.plugins = config.plugins.filter(
+  plugin => plugin.constructor.name !== 'ImageMinimizerPlugin'
+);
+
 config.plugins.push(
   new CopyPlugin({
     patterns: [

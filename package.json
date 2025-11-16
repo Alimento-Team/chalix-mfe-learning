@@ -94,6 +94,9 @@
     "jest-when": "^3.6.0",
     "rosie": "2.1.1"
   },
+  "optionalDependencies": {
+    "sharp": "^0.33.0"
+  },
   "bundlewatch": {
     "files": [
       {
