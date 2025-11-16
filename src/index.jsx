@@ -99,8 +99,6 @@ subscribe(APP_READY, () => {
                 {/* Chalix Vietnamese header - replaces edX header */}
                 <ChalixHeaderWithUserPopup
                   organizationTitle="PHẦN MỀM HỌC TẬP THÔNG MINH DÀNH CHO CÔNG CHỨC, VIÊN CHỨC"
-                  organizationName="CỤC HÀNG HẢI VÀ ĐƯỜNG THỦY NỘI ĐỊA VIỆT NAM"
-                  organizationLabel="Cơ Quan 1"
                   searchPlaceholder="Nhập từ khóa tìm kiếm"
                   baseApiUrl={getConfig().LMS_BASE_URL || ''}
                   logoutUrl="/logout"
