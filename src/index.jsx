@@ -63,7 +63,10 @@ subscribe(APP_READY, () => {
         window.location.href = lmsBaseUrl;
         break;
       case 'personalize':
-        window.location.href = `${learnerDashboardUrl}?tab=personalized`;
+        // Ensure URL ends with a single trailing slash before adding query string
+        window.location.href = learnerDashboardUrl.endsWith('/')
+          ? `${learnerDashboardUrl}?tab=personalized`
+          : `${learnerDashboardUrl}/?tab=personalized`;
         break;
       default:
         break;
