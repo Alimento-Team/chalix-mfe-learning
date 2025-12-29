@@ -16,6 +16,7 @@ const WelcomeMessage = ({ courseId, nextElementRef }) => {
   const {
     welcomeMessageHtml,
   } = useModel('outline', courseId);
+  const { isEnrolled } = useModel('courseHomeMeta', courseId);
 
   const messageBodyRef = useRef();
   const [display, setDisplay] = useState(true);
@@ -39,7 +40,8 @@ const WelcomeMessage = ({ courseId, nextElementRef }) => {
   const [showShortMessage, setShowShortMessage] = useState(messageCanBeShortened);
   const dispatch = useDispatch();
 
-  if (!welcomeMessageHtml) {
+  // Hide welcome message for unenrolled users
+  if (!welcomeMessageHtml || !isEnrolled) {
     return null;
   }
 

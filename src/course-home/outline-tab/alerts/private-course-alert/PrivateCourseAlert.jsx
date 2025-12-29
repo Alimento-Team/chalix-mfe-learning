@@ -36,10 +36,10 @@ const PrivateCourseAlert = ({ payload }) => {
   const enrollNowButton = (
     <Button
       disabled={loading}
-      variant="link"
-      className="p-0 border-0 align-top mr-1"
-      style={{ textDecoration: 'underline' }}
-      size="sm"
+      variant="primary"
+      className="px-4 py-2 font-weight-bold"
+      style={{ fontSize: '18px', minWidth: '200px' }}
+      size="lg"
       onClick={enrollClickHandler}
     >
       {intl.formatMessage(enrollmentMessages.enrollNowInline)}
@@ -84,12 +84,10 @@ const PrivateCourseAlert = ({ payload }) => {
       )}
       {!anonymousUser && (
         <>
-          <p className="font-weight-bold">{intl.formatMessage(outlineMessages.welcomeTo)} {title}</p>
           {canEnroll && (
-            <div className="d-flex">
+            <div className="d-flex flex-column align-items-center text-center py-3">
               {enrollNowButton}
-              {intl.formatMessage(messages.toAccess)}
-              {loading && <FontAwesomeIcon icon={faSpinner} spin />}
+              {loading && <FontAwesomeIcon icon={faSpinner} spin className="mt-3" />}
             </div>
           )}
           {!canEnroll && (
