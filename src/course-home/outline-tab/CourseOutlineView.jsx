@@ -778,7 +778,7 @@ const CourseOutlineView = () => {
             <h1 className="course-title-main">
               {courseInfo.title}
             </h1>
-            {/* Two-column details grid matching the desired layout (no action buttons) */}
+            {/* Three-column details grid with status and action button */}
             <div className="course-details-grid" style={{ marginTop: 12 }}>
               <div className="course-detail-column">
                 <div className="course-detail-row">
@@ -816,42 +816,37 @@ const CourseOutlineView = () => {
                   <div className="course-detail-label">Ngày kết thúc:</div>
                   <div className="course-detail-value">{formatCourseDate(courseInfo.end_date || courseInfo.end || null)}</div>
                 </div>
-
-                {/* Placeholder for spacing to align with left column */}
-                <div />
-              </div>
-            </div>
-
-            {/* Status badge and meeting link - centered and stacked with vertical gap */}
-            <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ marginRight: 8, fontWeight: 700, color: '#333' }}>Trạng thái Khoá học:</span>
-                <span
-                  style={{
-                    background: isCourseStarted(courseInfo) ? '#e6f4ea' : '#f5f5f5',
-                    color: isCourseStarted(courseInfo) ? '#2e7d32' : '#616161',
-                    borderRadius: '6px',
-                    padding: '6px 12px',
-                    fontWeight: 600,
-                    fontSize: '14px',
-                    display: 'inline-block',
-                  }}
-                >
-                  {isCourseStarted(courseInfo) ? 'Đã bắt đầu' : 'Chưa bắt đầu'}
-                </span>
               </div>
 
-              <div>
-                {courseInfo.meeting_url ? (
-                  <a
-                    href={courseInfo.meeting_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="meeting-link-button"
-                  >
-                    Tham gia lớp học trực tuyến
-                  </a>
-                ) : ('-')}
+              {/* Third column - Status and online class button */}
+              <div className="course-detail-column" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'flex-start', gap: 16 }}>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ marginBottom: 8, fontWeight: 700, color: '#333', fontSize: '16px' }}>Trạng thái: {isCourseStarted(courseInfo) ? 'Đã bắt đầu' : 'Chưa bắt đầu'}</div>
+                </div>
+
+                <div>
+                  {courseInfo.meeting_url ? (
+                    <a
+                      href={courseInfo.meeting_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="meeting-link-button"
+                      style={{
+                        background: '#1e3a8a',
+                        color: '#ffffff',
+                        padding: '10px 20px',
+                        borderRadius: '6px',
+                        textDecoration: 'none',
+                        display: 'inline-block',
+                        fontWeight: 600,
+                        fontSize: '14px',
+                        transition: 'background 0.2s ease',
+                      }}
+                    >
+                      Học trực tuyến
+                    </a>
+                  ) : null}
+                </div>
               </div>
             </div>
           </div>
