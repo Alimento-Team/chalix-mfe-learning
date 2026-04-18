@@ -7,6 +7,7 @@ export {
 } from './thunks';
 export {
   getResumeBlock,
+  postMaterialOpenEvent,
   getSequenceForUnitDeprecated,
   sendActivationEmail,
 } from './api';

@@ -9,6 +9,7 @@ import {
   fetchCourse,
   fetchSequence,
   getResumeBlock,
+  postMaterialOpenEvent,
   getSequenceForUnitDeprecated,
   saveSequencePosition,
 } from './data';
@@ -149,6 +150,22 @@ export const checkSequenceUnitMarkerToSequenceUnitRedirect = memoize(
 );
 
 class CoursewareContainer extends Component {
+  checkTrackMaterialOpen = memoize((courseId, unitId, unitContentType, isPreview) => {
+    if (!courseId || !unitId || isPreview) {
+      return;
+    }
+
+    const normalizedModuleType = {
+      video: 'video',
+      problem: 'problem',
+      vertical: 'html',
+      other: 'html',
+      lock: 'html',
+    }[unitContentType] || 'html';
+
+    postMaterialOpenEvent(courseId, normalizedModuleType).catch(() => {});
+  });
+
   checkSaveSequencePosition = memoize((unitId) => {
     const {
       courseId,
@@ -195,9 +212,11 @@ class CoursewareContainer extends Component {
       routeCourseId,
       routeSequenceId,
       routeUnitId,
+      unitsById,
       navigate,
       isPreview,
     } = this.props;
+    const currentUnit = routeUnitId ? unitsById?.[routeUnitId] : null;
 
     // Load data whenever the course or sequence ID changes.
     this.checkFetchCourse(routeCourseId);
@@ -301,6 +320,10 @@ class CoursewareContainer extends Component {
       navigate,
       isPreview,
     );
+
+    if (sequenceStatus === 'loaded' && routeUnitId && currentUnit?.contentType) {
+      this.checkTrackMaterialOpen(courseId, routeUnitId, currentUnit.contentType, isPreview);
+    }
   }
 
   handleUnitNavigationClick = () => {
@@ -382,6 +405,10 @@ CoursewareContainer.propTypes = {
   routeCourseId: PropTypes.string.isRequired,
   routeSequenceId: PropTypes.string,
   routeUnitId: PropTypes.string,
+  unitsById: PropTypes.objectOf(PropTypes.shape({
+    id: PropTypes.string,
+    contentType: PropTypes.string,
+  })),
   courseId: PropTypes.string,
   sequenceId: PropTypes.string,
   firstSequenceId: PropTypes.string,
@@ -406,6 +433,7 @@ CoursewareContainer.defaultProps = {
   sequenceId: null,
   routeSequenceId: null,
   routeUnitId: null,
+  unitsById: {},
   firstSequenceId: null,
   nextSequence: null,
   previousSequence: null,
@@ -499,7 +527,6 @@ const mapStateToProps = (state) => {
     sequenceStatus,
     sequenceMightBeUnit,
   } = state.courseware;
-
   return {
     courseId,
     sequenceId,
@@ -508,6 +535,7 @@ const mapStateToProps = (state) => {
     sequenceMightBeUnit,
     course: currentCourseSelector(state),
     sequence: currentSequenceSelector(state),
+    unitsById: state.models.units || {},
     previousSequence: previousSequenceSelector(state),
     nextSequence: nextSequenceSelector(state),
     firstSequenceId: firstSequenceIdSelector(state),

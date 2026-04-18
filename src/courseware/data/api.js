@@ -43,6 +43,17 @@ export async function getSequenceMetadata(sequenceId, params) {
   return normalizeSequenceMetadata(data);
 }
 
+export async function postMaterialOpenEvent(courseId, moduleType) {
+  const { data } = await getAuthenticatedHttpClient().post(
+    `${getConfig().LMS_BASE_URL}/api/learning_analytics/material-open/`,
+    {
+      course_id: courseId,
+      module_type: moduleType,
+    },
+  );
+  return data;
+}
+
 const getSequenceHandlerUrl = (courseId, sequenceId) => `${getConfig().LMS_BASE_URL}/courses/${courseId}/xblock/${sequenceId}/handler`;
 
 export async function getBlockCompletion(courseId, sequenceId, usageKey) {

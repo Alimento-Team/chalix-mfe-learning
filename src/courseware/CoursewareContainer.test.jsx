@@ -158,6 +158,10 @@ describe('CoursewareContainer', () => {
 
     const discussionConfigUrl = new RegExp(`${getConfig().LMS_BASE_URL}/api/discussion/v1/courses/*`);
     axiosMock.onGet(discussionConfigUrl).reply(200, { provider: 'legacy' });
+
+    axiosMock
+      .onPost(`${getConfig().LMS_BASE_URL}/api/learning_analytics/material-open/`)
+      .reply(200, {});
   }
 
   async function loadContainer() {
@@ -373,6 +377,21 @@ describe('CoursewareContainer', () => {
         expect(container.querySelector('.fake-unit')).toHaveTextContent('Unit Contents');
         expect(container.querySelector('.fake-unit')).toHaveTextContent(courseId);
         expect(container.querySelector('.fake-unit')).toHaveTextContent(unitBlocks[2].id);
+      });
+
+      it('should post a material-open event for the loaded unit', async () => {
+        history.push(`/course/${courseId}/${sequenceBlock.id}/${unitBlocks[2].id}`);
+        await loadContainer();
+
+        const materialOpenRequests = axiosMock.history.post.filter(
+          request => request.url === `${getConfig().LMS_BASE_URL}/api/learning_analytics/material-open/`,
+        );
+
+        expect(materialOpenRequests).toHaveLength(1);
+        expect(JSON.parse(materialOpenRequests[0].data)).toEqual({
+          course_id: courseId,
+          module_type: 'html',
+        });
       });
 
       it('should render the sequence_navigation plugin slot correctly', async () => {
