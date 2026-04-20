@@ -50,7 +50,12 @@ const ReviewWidget = ({ courseId, unitUsageKey }) => {
       const base = `${getConfig().LMS_BASE_URL}/api/course_home/reviews/${courseId}/summary`;
       const url = unitUsageKey ? `${base}?unit_usage_key=${encodeURIComponent(unitUsageKey)}` : base;
       const { data } = await getAuthenticatedHttpClient().get(url);
-      setSummary(data);
+      setSummary({
+        like: data?.like ?? 0,
+        neutral: data?.neutral ?? 0,
+        dislike: data?.dislike ?? 0,
+      });
+      setSelected(data?.my_rating || null);
     } catch (e) {
       // ignore
     }
@@ -63,8 +68,7 @@ const ReviewWidget = ({ courseId, unitUsageKey }) => {
         `${getConfig().LMS_BASE_URL}/api/course_home/reviews/${courseId}`,
         { rating, unit_usage_key: unitUsageKey },
       );
-      setSelected(rating);
-      fetchSummary();
+      await fetchSummary();
     } finally {
       setSubmitting(false);
     }

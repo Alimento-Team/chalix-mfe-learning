@@ -3,13 +3,41 @@ import PropTypes from 'prop-types';
 
 import { useIntl } from '@edx/frontend-platform/i18n';
 import { Alert, Button, TransitionReplace } from '@openedx/paragon';
-import truncate from 'truncate-html';
 
 import { useDispatch } from 'react-redux';
 import LmsHtmlFragment from '../LmsHtmlFragment';
 import messages from '../messages';
 import { useModel } from '../../../generic/model-store';
 import { dismissWelcomeMessage } from '../../data/thunks';
+
+const htmlToText = (html) => {
+  if (!html) {
+    return '';
+  }
+
+  if (typeof window !== 'undefined' && window.document) {
+    const container = window.document.createElement('div');
+    container.innerHTML = html;
+    return (container.textContent || container.innerText || '').trim();
+  }
+
+  return String(html).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+};
+
+const escapeHtml = (text) => String(text || '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#039;');
+
+const truncateWords = (text, maxWords) => {
+  const words = String(text || '').trim().split(/\s+/).filter(Boolean);
+  if (words.length <= maxWords) {
+    return { text: words.join(' '), truncated: false };
+  }
+  return { text: `${words.slice(0, maxWords).join(' ')}...`, truncated: true };
+};
 
 const WelcomeMessage = ({ courseId, nextElementRef }) => {
   const intl = useIntl();
@@ -21,20 +49,24 @@ const WelcomeMessage = ({ courseId, nextElementRef }) => {
   const messageBodyRef = useRef();
   const [display, setDisplay] = useState(true);
 
-  // welcomeMessageHtml can contain comments or malformatted HTML which can impact the length that determines
-  // messageCanBeShortened. We clean it by calling truncate with a length of welcomeMessageHtml.length which
-  // will not result in a truncation but a formatting into 'truncate-html' canonical format.
+  const fullWelcomeMessageText = useMemo(
+    () => htmlToText(welcomeMessageHtml),
+    [welcomeMessageHtml],
+  );
   const cleanedWelcomeMessageHtml = useMemo(
-    () => truncate(welcomeMessageHtml, welcomeMessageHtml.length, { keepWhitespaces: true }),
+    () => welcomeMessageHtml,
     [welcomeMessageHtml],
   );
   const shortWelcomeMessageHtml = useMemo(
-    () => truncate(cleanedWelcomeMessageHtml, 100, { byWords: true, keepWhitespaces: true }),
-    [cleanedWelcomeMessageHtml],
+    () => {
+      const shortened = truncateWords(fullWelcomeMessageText, 100);
+      return `<p>${escapeHtml(shortened.text)}</p>`;
+    },
+    [fullWelcomeMessageText],
   );
   const messageCanBeShortened = useMemo(
-    () => (shortWelcomeMessageHtml.length < cleanedWelcomeMessageHtml.length),
-    [cleanedWelcomeMessageHtml, shortWelcomeMessageHtml],
+    () => truncateWords(fullWelcomeMessageText, 100).truncated,
+    [fullWelcomeMessageText],
   );
 
   const [showShortMessage, setShowShortMessage] = useState(messageCanBeShortened);

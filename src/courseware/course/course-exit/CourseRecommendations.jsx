@@ -11,13 +11,29 @@ import {
   Hyperlink, DataTable, CardView, Card,
 } from '@openedx/paragon';
 import PropTypes from 'prop-types';
-import truncate from 'truncate-html';
 import { FAILED, LOADED, LOADING } from '@src/constants';
 import { useModel } from '../../../generic/model-store';
 import fetchCourseRecommendations from './data/thunks';
 import CatalogSuggestion from './CatalogSuggestion';
 import PageLoading from '../../../generic/PageLoading';
 import { logClick } from './utils';
+
+const truncateText = (value, maxLength, { reserveLastWord = 0 } = {}) => {
+  const input = String(value || '');
+  if (input.length <= maxLength) {
+    return input;
+  }
+
+  const head = input.slice(0, maxLength).trimEnd();
+  if (reserveLastWord < 0) {
+    const wordBoundary = head.lastIndexOf(' ');
+    if (wordBoundary > 0) {
+      return `${head.slice(0, wordBoundary)}...`;
+    }
+  }
+
+  return `${head}...`;
+};
 
 const messages = defineMessages({
   recommendationsHeading: {
@@ -87,7 +103,7 @@ const CourseCard = ({
     >{text => (
       <>
         <span className="sr-only">{text}: </span>
-        {truncate(formattedOwners, 40, { reserveLastWord: -1 })}
+        {truncateText(formattedOwners, 40, { reserveLastWord: -1 })}
       </>
     )}
     </FormattedMessage>
@@ -105,7 +121,7 @@ const CourseCard = ({
       >
         <Card isClickable style={{ width: '21rem', height: '100%' }}>
           <Card.ImageCap src={image.src} />
-          <Card.Header title={truncate(title, 70, { reserveLastWord: -1 })} subtitle={subtitle} size="sm" />
+          <Card.Header title={truncateText(title, 70, { reserveLastWord: -1 })} subtitle={subtitle} size="sm" />
           {/* Section is needed for internal vertical spacing to work out. If you can remove, be my guest */}
           <Card.Section> <></> </Card.Section>
           <Card.Footer textElement={intl.formatMessage(messages.recommendationsCourseFooter)}><></></Card.Footer>

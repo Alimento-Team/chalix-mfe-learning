@@ -1,6 +1,5 @@
 import React, { useRef, useCallback, useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
-import Webcam from 'react-webcam';
 import { getAuthenticatedHttpClient } from '@edx/frontend-platform/auth';
 import { getConfig } from '@edx/frontend-platform';
 import './FacialExpressionRecorder.scss';
@@ -19,7 +18,8 @@ const FacialExpressionRecorder = ({
   isActive,
   onError,
 }) => {
-  const webcamRef = useRef(null);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const [isRecording, setIsRecording] = useState(false);
   const [hasPermission, setHasPermission] = useState(null);
@@ -141,12 +141,20 @@ const FacialExpressionRecorder = ({
       if (recordingTimerRef.current) {
         clearInterval(recordingTimerRef.current);
       }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
     };
   }, [isActive, hasPermission, isRecording, checkPreviousRecording]);
 
   const requestCameraPermission = async () => {
     console.log('FacialExpressionRecorder - Requesting camera access...');
     try {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
           width: { ideal: VIDEO_WIDTH },
@@ -157,8 +165,10 @@ const FacialExpressionRecorder = ({
       });
       
       console.log('FacialExpressionRecorder - Camera permission GRANTED', stream);
-      // Stop the stream immediately after getting permission
-      stream.getTracks().forEach(track => track.stop());
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
       setHasPermission(true);
     } catch (error) {
       console.error('FacialExpressionRecorder - Camera permission DENIED:', error);
@@ -176,7 +186,8 @@ const FacialExpressionRecorder = ({
   }, []);
 
   const startRecording = useCallback(() => {
-    if (webcamRef.current && webcamRef.current.stream) {
+    const stream = streamRef.current;
+    if (stream) {
       try {
         // Use higher bitrate for better quality (720p)
         const options = {
@@ -190,11 +201,11 @@ const FacialExpressionRecorder = ({
           options.videoBitsPerSecond = 2000000; // 2 Mbps for vp8
         }
 
-        const mediaRecorder = new MediaRecorder(webcamRef.current.stream, options);
+        const mediaRecorder = new MediaRecorder(stream, options);
 
         mediaRecorderRef.current = mediaRecorder;
         mediaRecorder.addEventListener('dataavailable', handleDataAvailable);
-        
+
         // Record in chunks of 10 seconds
         mediaRecorder.start(CHUNK_INTERVAL);
         setIsRecording(true);
@@ -232,6 +243,12 @@ const FacialExpressionRecorder = ({
       }
     }
   }, [handleDataAvailable, onError, saveRecordingState]);
+
+  useEffect(() => {
+    if (hasPermission && streamRef.current && videoRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+    }
+  }, [hasPermission]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {
@@ -370,15 +387,11 @@ const FacialExpressionRecorder = ({
   return (
     <div className="facial-expression-recorder">
       <div className="webcam-container">
-        <Webcam
-          ref={webcamRef}
-          audio={false}
-          screenshotFormat="image/jpeg"
-          videoConstraints={{
-            width: VIDEO_WIDTH,
-            height: VIDEO_HEIGHT,
-            facingMode: 'user',
-          }}
+        <video
+          ref={videoRef}
+          autoPlay
+          muted
+          playsInline
           className="webcam-preview"
         />
         {isRecording && (
