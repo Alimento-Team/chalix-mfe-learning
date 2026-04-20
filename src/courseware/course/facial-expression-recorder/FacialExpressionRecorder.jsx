@@ -23,6 +23,7 @@ const FacialExpressionRecorder = ({
   const mediaRecorderRef = useRef(null);
   const [isRecording, setIsRecording] = useState(false);
   const [hasPermission, setHasPermission] = useState(null);
+  const [webcamVisible, setWebcamVisible] = useState(true);
   const [recordingChunks, setRecordingChunks] = useState([]);
   const uploadIntervalRef = useRef(null);
   const recordingStartTimeRef = useRef(null);
@@ -336,8 +337,8 @@ const FacialExpressionRecorder = ({
     }
   }, [recordingChunks]);
 
-  if (!isActive) {
-    console.log('FacialExpressionRecorder - Not rendering (not active)');
+  if (!isActive || !webcamVisible) {
+    console.log('FacialExpressionRecorder - Not rendering (not active or hidden)');
     return null;
   }
 
@@ -387,6 +388,15 @@ const FacialExpressionRecorder = ({
   return (
     <div className="facial-expression-recorder">
       <div className="webcam-container">
+        <button
+          className="webcam-close-btn"
+          onClick={() => setWebcamVisible(false)}
+          aria-label="Đóng webcam"
+          title="Đóng webcam"
+          type="button"
+        >
+          ✕
+        </button>
         <video
           ref={videoRef}
           autoPlay
