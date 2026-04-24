@@ -69,6 +69,50 @@ const filterAndDeduplicateVideos = (list) => {
   });
 };
 
+const buildUniqueKey = (...parts) => parts
+  .map(part => (part == null ? '' : String(part).trim().toLowerCase()))
+  .filter(Boolean)
+  .join('::');
+
+const deduplicateModulesAndUnits = (payload) => {
+  if (!payload || !Array.isArray(payload.modules)) return payload;
+
+  const seenModuleKeys = new Set();
+  const modules = payload.modules.reduce((acc, module) => {
+    if (!module) return acc;
+
+    const dedupedUnits = [];
+    const seenUnitKeys = new Set();
+    (module.units || []).forEach((unit) => {
+      if (!unit) return;
+      const unitKey = buildUniqueKey(unit.id, unit.usage_key, unit.title);
+      if (!unitKey || seenUnitKeys.has(unitKey)) return;
+      seenUnitKeys.add(unitKey);
+      dedupedUnits.push(unit);
+    });
+
+    const moduleKey = buildUniqueKey(module.id, module.title);
+    if (moduleKey && seenModuleKeys.has(moduleKey)) {
+      return acc;
+    }
+    if (moduleKey) {
+      seenModuleKeys.add(moduleKey);
+    }
+
+    acc.push({
+      ...module,
+      units: dedupedUnits,
+      units_count: dedupedUnits.length,
+    });
+    return acc;
+  }, []);
+
+  return {
+    ...payload,
+    modules,
+  };
+};
+
 const CourseOutlineView = () => {
   // All hooks must be at the top level, before any conditional returns
   const { courseId } = useSelector(state => state.courseHome);
@@ -402,7 +446,8 @@ const CourseOutlineView = () => {
           // Soft-fail: fall back to earlier data if Chalix config not available
         }
 
-        setCourseData(data);
+        const normalizedData = deduplicateModulesAndUnits(data);
+        setCourseData(normalizedData);
         setError(null);
       } catch (err) {
         console.error('Error fetching course data:', err);
