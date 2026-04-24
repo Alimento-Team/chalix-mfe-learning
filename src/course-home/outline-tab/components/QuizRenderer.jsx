@@ -887,9 +887,8 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
       )}
       
       <div>
-        {[...(quiz.questions || [])].reverse().map((q, idx) => {
-          // Calculate the correct question number (since we reversed the array)
-          const questionNumber = quiz.questions.length - idx;
+        {(quiz.questions || []).map((q, idx) => {
+          const questionNumber = idx + 1;
           
           return (
             <div key={q.id || idx} style={{ marginBottom: 24 }}>

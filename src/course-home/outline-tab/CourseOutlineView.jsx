@@ -1061,7 +1061,7 @@ const CourseOutlineView = () => {
                   )}
 
                   {/* Quiz Access Button - Single step to access quiz */}
-                  {isFinalUnit && !showFinalEvaluation && finalEvaluationIsQuiz && !showQuizListInline && (
+                  {isFinalUnit && !showFinalEvaluation && !showQuizListInline && (
                     <div style={{ marginTop: 16, padding: 16, background: '#e3f2fd', border: '2px solid #0070d2', borderRadius: 8 }}>
                       <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, color: '#0070d2' }}>
                         🎓 Bài kiểm tra cuối bài
