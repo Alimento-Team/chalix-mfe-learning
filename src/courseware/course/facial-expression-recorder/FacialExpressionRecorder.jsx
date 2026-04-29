@@ -23,6 +23,7 @@ const FacialExpressionRecorder = ({
   const mediaRecorderRef = useRef(null);
   const [isRecording, setIsRecording] = useState(false);
   const [hasPermission, setHasPermission] = useState(null);
+  const [cameraError, setCameraError] = useState('');
   const [webcamVisible, setWebcamVisible] = useState(true);
   const [recordingChunks, setRecordingChunks] = useState([]);
   const uploadIntervalRef = useRef(null);
@@ -151,6 +152,17 @@ const FacialExpressionRecorder = ({
 
   const requestCameraPermission = async () => {
     console.log('FacialExpressionRecorder - Requesting camera access...');
+    setCameraError('');
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setHasPermission(false);
+      setCameraError('Trình duyệt không hỗ trợ webcam. Vui lòng dùng trình duyệt mới hơn.');
+      if (onError) {
+        onError('Browser does not support camera capture.');
+      }
+      return;
+    }
+
     try {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
@@ -167,15 +179,23 @@ const FacialExpressionRecorder = ({
       
       console.log('FacialExpressionRecorder - Camera permission GRANTED', stream);
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+      if (!videoRef.current) {
+        throw new Error('Camera preview element is unavailable');
       }
+
+      videoRef.current.srcObject = stream;
       setHasPermission(true);
     } catch (error) {
       console.error('FacialExpressionRecorder - Camera permission DENIED:', error);
       setHasPermission(false);
+      setCameraError('Không thể hiển thị webcam. Vui lòng kiểm tra quyền truy cập camera và thử lại.');
       if (onError) {
         onError('Camera permission denied. Please allow camera access to continue.');
+      }
+
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
       }
     }
   };
@@ -340,6 +360,26 @@ const FacialExpressionRecorder = ({
   if (!isActive || !webcamVisible) {
     console.log('FacialExpressionRecorder - Not rendering (not active or hidden)');
     return null;
+  }
+
+  if (cameraError) {
+    return (
+      <div className="facial-expression-recorder">
+        <div className="webcam-container permission-denied">
+          <div className="permission-message">
+            <div className="permission-icon">⚠️</div>
+            <div className="permission-text">{cameraError}</div>
+            <button
+              className="permission-button"
+              onClick={requestCameraPermission}
+              type="button"
+            >
+              Thử lại
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (hasPermission === false) {
