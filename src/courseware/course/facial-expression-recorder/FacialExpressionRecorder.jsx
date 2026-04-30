@@ -179,11 +179,13 @@ const FacialExpressionRecorder = ({
       
       console.log('FacialExpressionRecorder - Camera permission GRANTED', stream);
       streamRef.current = stream;
-      if (!videoRef.current) {
-        throw new Error('Camera preview element is unavailable');
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      } else {
+        // The stream can be ready before the video element mounts.
+        // A later effect attaches streamRef.current once the element exists.
+        console.log('FacialExpressionRecorder - Video element not ready yet; will attach stream after mount');
       }
-
-      videoRef.current.srcObject = stream;
       setHasPermission(true);
     } catch (error) {
       console.error('FacialExpressionRecorder - Camera permission DENIED:', error);
