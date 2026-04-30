@@ -11,6 +11,7 @@ const CHUNK_INTERVAL = 10000; // 10 seconds chunks
 const UPLOAD_INTERVAL = 30000; // Upload every 30 seconds
 const VIDEO_WIDTH = 1280; // 720p width
 const VIDEO_HEIGHT = 720; // 720p height
+const RECORDER_BUILD_ID = '2026-04-30-racefix-2';
 
 const FacialExpressionRecorder = ({
   courseId,
@@ -90,6 +91,7 @@ const FacialExpressionRecorder = ({
       courseId,
       unitId,
       isActive,
+      buildId: RECORDER_BUILD_ID,
     });
 
     // Check if we need to record based on previous recording
@@ -190,9 +192,22 @@ const FacialExpressionRecorder = ({
     } catch (error) {
       console.error('FacialExpressionRecorder - Camera permission DENIED:', error);
       setHasPermission(false);
-      setCameraError('Không thể hiển thị webcam. Vui lòng kiểm tra quyền truy cập camera và thử lại.');
+
+      const errorName = error && error.name ? error.name : '';
+      const isPermissionError = errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError';
+
+      setCameraError(
+        isPermissionError
+          ? 'Trình duyệt đang chặn quyền camera. Vui lòng cho phép camera và thử lại.'
+          : 'Không thể khởi tạo webcam. Vui lòng tải lại trang và thử lại.'
+      );
+
       if (onError) {
-        onError('Camera permission denied. Please allow camera access to continue.');
+        onError(
+          isPermissionError
+            ? 'Camera permission denied. Please allow camera access to continue.'
+            : 'Camera initialization failed. Please reload the page and try again.'
+        );
       }
 
       if (streamRef.current) {
