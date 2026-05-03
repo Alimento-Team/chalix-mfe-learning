@@ -87,6 +87,7 @@ const FacialExpressionRecorder = ({
 
   // Log component mount
   useEffect(() => {
+    console.log(`FacialExpressionRecorder - Build ID: ${RECORDER_BUILD_ID}`);
     console.log('FacialExpressionRecorder - Component mounted', {
       courseId,
       unitId,
@@ -191,6 +192,16 @@ const FacialExpressionRecorder = ({
       setHasPermission(true);
     } catch (error) {
       console.error('FacialExpressionRecorder - Camera permission DENIED:', error);
+
+      const errorMessage = error && error.message ? error.message : '';
+      const isPreviewMountRace = errorMessage.includes('Camera preview element is unavailable');
+      if (isPreviewMountRace) {
+        // Treat this as a UI mount race, not a permission denial.
+        setHasPermission(true);
+        setCameraError('');
+        return;
+      }
+
       setHasPermission(false);
 
       const errorName = error && error.name ? error.name : '';
