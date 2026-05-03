@@ -34,21 +34,58 @@ const FacialExpressionRecorder = ({
 
   const attachStreamToVideo = useCallback(async () => {
     if (!streamRef.current || !videoRef.current) {
+      console.log('FacialExpressionRecorder - attach skipped', {
+        hasStream: !!streamRef.current,
+        hasVideo: !!videoRef.current,
+      });
       return;
     }
 
     const video = videoRef.current;
+    const tracks = streamRef.current.getVideoTracks();
+    console.log('FacialExpressionRecorder - attaching stream to video', {
+      active: streamRef.current.active,
+      videoTracks: tracks.length,
+      muted: video.muted,
+      readyState: video.readyState,
+    });
+
+    video.muted = true;
+    video.autoplay = true;
+    video.playsInline = true;
+    video.setAttribute('muted', '');
+    video.setAttribute('autoplay', '');
+    video.setAttribute('playsinline', '');
+
     if (video.srcObject !== streamRef.current) {
       video.srcObject = streamRef.current;
     }
 
     try {
       await video.play();
+      console.log('FacialExpressionRecorder - video.play() resolved', {
+        currentTime: video.currentTime,
+        readyState: video.readyState,
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight,
+      });
     } catch (playError) {
       // Autoplay can be blocked transiently; keep stream attached and retry on next render.
       console.warn('FacialExpressionRecorder - video.play() deferred:', playError && playError.message);
     }
   }, []);
+
+  const handleVideoRef = useCallback((node) => {
+    videoRef.current = node;
+    if (node) {
+      console.log('FacialExpressionRecorder - video element mounted');
+      if (streamRef.current) {
+        requestAnimationFrame(() => {
+          attachStreamToVideo();
+        });
+      }
+    }
+  }, [attachStreamToVideo]);
 
   // Generate a unique storage key for this course-unit combination
   const getStorageKey = useCallback(() => {
@@ -203,6 +240,10 @@ const FacialExpressionRecorder = ({
       });
 
       streamRef.current = stream;
+      console.log('FacialExpressionRecorder - granted stream details', {
+        active: stream.active,
+        videoTracks: stream.getVideoTracks().length,
+      });
       if (videoRef.current) {
         attachStreamToVideo();
       } else {
@@ -211,6 +252,9 @@ const FacialExpressionRecorder = ({
         console.log('FacialExpressionRecorder - Video element not ready yet; will attach stream after mount');
       }
       setHasPermission(true);
+      requestAnimationFrame(() => {
+        attachStreamToVideo();
+      });
     } catch (error) {
       console.error('FacialExpressionRecorder - Camera permission DENIED:', error);
 
@@ -487,13 +531,26 @@ const FacialExpressionRecorder = ({
           ✕
         </button>
         <video
-          ref={videoRef}
+          ref={handleVideoRef}
           autoPlay
           muted
           playsInline
           className="webcam-preview"
           onLoadedMetadata={() => {
+            console.log('FacialExpressionRecorder - loadedmetadata', {
+              videoWidth: videoRef.current?.videoWidth,
+              videoHeight: videoRef.current?.videoHeight,
+            });
             attachStreamToVideo();
+          }}
+          onCanPlay={() => {
+            console.log('FacialExpressionRecorder - canplay');
+          }}
+          onPlaying={() => {
+            console.log('FacialExpressionRecorder - playing');
+          }}
+          onError={() => {
+            console.error('FacialExpressionRecorder - video element error');
           }}
         />
         {isRecording && (
