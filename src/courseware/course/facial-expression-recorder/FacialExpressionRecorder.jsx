@@ -510,14 +510,6 @@ const FacialExpressionRecorder = ({
 
   console.log('FacialExpressionRecorder - Rendering component', { hasPermission, isRecording });
 
-  // Format recording duration for display
-  const formatDuration = (milliseconds) => {
-    const totalSeconds = Math.floor(milliseconds / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
-
   return (
     <div className="facial-expression-recorder">
       <div className="webcam-container">
@@ -556,9 +548,6 @@ const FacialExpressionRecorder = ({
         {isRecording && (
           <div className="recording-indicator">
             <span className="recording-dot" />
-            <span className="recording-text">
-              Recording {formatDuration(recordingDuration)} / 10:00
-            </span>
           </div>
         )}
       </div>

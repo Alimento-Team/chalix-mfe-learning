@@ -95,24 +95,14 @@
             left: 8px;
             display: flex;
             align-items: center;
-            gap: 6px;
-            padding: 4px 8px;
-            background-color: rgba(220, 38, 38, 0.9);
-            border-radius: 4px;
 
             .recording-dot {
-                width: 8px;
-                height: 8px;
+                width: 10px;
+                height: 10px;
                 border-radius: 50%;
-                background-color: #fff;
+                background-color: #ef4444;
+                box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35);
                 animation: pulse 1.5s ease-in-out infinite;
-            }
-
-            .recording-text {
-                color: #fff;
-                font-size: 11px;
-                font-weight: 600;
-                text-transform: uppercase;
             }
         }
     }
