@@ -32,6 +32,24 @@ const FacialExpressionRecorder = ({
   const recordingTimerRef = useRef(null);
   const [recordingDuration, setRecordingDuration] = useState(0);
 
+  const attachStreamToVideo = useCallback(async () => {
+    if (!streamRef.current || !videoRef.current) {
+      return;
+    }
+
+    const video = videoRef.current;
+    if (video.srcObject !== streamRef.current) {
+      video.srcObject = streamRef.current;
+    }
+
+    try {
+      await video.play();
+    } catch (playError) {
+      // Autoplay can be blocked transiently; keep stream attached and retry on next render.
+      console.warn('FacialExpressionRecorder - video.play() deferred:', playError && playError.message);
+    }
+  }, []);
+
   // Generate a unique storage key for this course-unit combination
   const getStorageKey = useCallback(() => {
     return `facial-recording-${courseId}-${unitId}`;
@@ -135,26 +153,30 @@ const FacialExpressionRecorder = ({
       stopRecording();
     }
 
-    // Cleanup on unmount
+  }, [isActive, hasPermission, isRecording, checkPreviousRecording]);
+
+  // Cleanup streams/intervals only when component unmounts.
+  useEffect(() => {
     return () => {
-      if (isRecording) {
-        stopRecording();
-      }
       if (uploadIntervalRef.current) {
         clearInterval(uploadIntervalRef.current);
+        uploadIntervalRef.current = null;
       }
       if (recordingTimerRef.current) {
         clearInterval(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
       }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
       }
     };
-  }, [isActive, hasPermission, isRecording, checkPreviousRecording]);
+  }, []);
 
   const requestCameraPermission = async () => {
-    console.log('FacialExpressionRecorder - Requesting camera access...');
     setCameraError('');
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -179,11 +201,10 @@ const FacialExpressionRecorder = ({
         },
         audio: false 
       });
-      
-      console.log('FacialExpressionRecorder - Camera permission GRANTED', stream);
+
       streamRef.current = stream;
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+        attachStreamToVideo();
       } else {
         // The stream can be ready before the video element mounts.
         // A later effect attaches streamRef.current once the element exists.
@@ -295,9 +316,9 @@ const FacialExpressionRecorder = ({
 
   useEffect(() => {
     if (hasPermission && streamRef.current && videoRef.current) {
-      videoRef.current.srcObject = streamRef.current;
+      attachStreamToVideo();
     }
-  }, [hasPermission]);
+  }, [hasPermission, attachStreamToVideo]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {
@@ -471,6 +492,9 @@ const FacialExpressionRecorder = ({
           muted
           playsInline
           className="webcam-preview"
+          onLoadedMetadata={() => {
+            attachStreamToVideo();
+          }}
         />
         {isRecording && (
           <div className="recording-indicator">
