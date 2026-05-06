@@ -32,7 +32,12 @@ const Day = ({
 
   const timezoneFormatArgs = userTimezone ? { timeZone: userTimezone } : {};
 
-  const { color, badges } = getBadgeListAndColor(date, intl, null, items);
+  const visibleItems = items.filter(item => item.dateType !== 'course-end-date');
+  if (visibleItems.length === 0) {
+    return null;
+  }
+
+  const { color, badges } = getBadgeListAndColor(date, intl, null, visibleItems);
 
   return (
     <li className="dates-day pb-4" data-testid="dates-day">
@@ -58,8 +63,8 @@ const Day = ({
           />
           {badges}
         </div>
-        {items.map((item) => {
-          const { badges: itemBadges } = getBadgeListAndColor(date, intl, item, items);
+        {visibleItems.map((item) => {
+          const { badges: itemBadges } = getBadgeListAndColor(date, intl, item, visibleItems);
 
           const showDueDateTime = item.dateType === 'assignment-due-date';
           const showLink = item.link && isLearnerAssignment(item);

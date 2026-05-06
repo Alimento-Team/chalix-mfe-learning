@@ -74,8 +74,7 @@ const CertificateStatusAlert = ({ payload }) => {
         <p>
           <FormattedMessage
             id="learning.outline.alert.cert.earnedNotAvailable"
-            defaultMessage="This course ends on {courseEndDateFormatted}. Final grades and any earned certificates are
-            scheduled to be available after {certificateAvailableDate}."
+            defaultMessage="Final grades and any earned certificates are scheduled to be available after {certificateAvailableDate}."
             values={{
               courseEndDateFormatted,
               certificateAvailableDate: certificateAvailableDateFormatted,

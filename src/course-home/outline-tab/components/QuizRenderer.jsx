@@ -468,13 +468,10 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
           let totalPointsEarned = 0;
           let totalPointsPossible = 0;
           
-          for (const [blockId, answers] of Object.entries(answersByQuiz)) {
+          for (const [blockId, quizAnswers] of Object.entries(answersByQuiz)) {
             try {
-              const quizData = quizModules.find(q => q.id === blockId);
-              if (!quizData) continue;
-              
-              const individualPayload = { answers };
-              const individualUrl = `${getConfig().LMS_BASE_URL}/api/courses/v1/blocks/${blockId}/handler/xblock_handler`;
+              const individualPayload = { answers: quizAnswers };
+              const individualUrl = `${getConfig().LMS_BASE_URL}/api/course_home/v1/content/quizzes/${encodeURIComponent(blockId)}/submit/`;
               
               console.log(`📤 Fallback: Submitting individual quiz ${blockId}:`, individualPayload);
               const individualResp = await client.post(individualUrl, individualPayload, { 
@@ -488,8 +485,10 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
                 ...individualResult
               });
               
-              totalPointsEarned += individualResult.points_earned || individualResult.score || 0;
-              totalPointsPossible += individualResult.points_possible || individualResult.total_points || 1;
+              // QuizSubmitView returns { status, score: [correct, total], results }
+              const scoreArr = Array.isArray(individualResult.score) ? individualResult.score : [0, 1];
+              totalPointsEarned += scoreArr[0];
+              totalPointsPossible += scoreArr[1];
               
             } catch (indivError) {
               console.error(`❌ Error submitting individual quiz ${blockId}:`, indivError);
@@ -532,13 +531,10 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
         let totalPointsEarned = 0;
         let totalPointsPossible = 0;
         
-        for (const [blockId, answers] of Object.entries(answersByQuiz)) {
+        for (const [blockId, quizAnswers] of Object.entries(answersByQuiz)) {
           try {
-            const quizData = quizModules.find(q => q.id === blockId);
-            if (!quizData) continue;
-            
-            const payload = { answers };
-            const postUrl = `${getConfig().LMS_BASE_URL}/api/courses/v1/blocks/${blockId}/handler/xblock_handler`;
+            const payload = { answers: quizAnswers };
+            const postUrl = `${getConfig().LMS_BASE_URL}/api/course_home/v1/content/quizzes/${encodeURIComponent(blockId)}/submit/`;
             
             console.log(`📤 Submitting individual quiz ${blockId}:`, payload);
             const resp = await client.post(postUrl, payload, { headers: { 'USE-JWT-COOKIE': 'true' } });
@@ -550,8 +546,10 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
               ...result
             });
             
-            totalPointsEarned += result.points_earned || result.score || 0;
-            totalPointsPossible += result.points_possible || result.total_points || 1;
+            // QuizSubmitView returns { status, score: [correct, total], results }
+            const scoreArr = Array.isArray(result.score) ? result.score : [0, 1];
+            totalPointsEarned += scoreArr[0];
+            totalPointsPossible += scoreArr[1];
             
           } catch (error) {
             console.error(`❌ Error submitting quiz ${blockId}:`, error);

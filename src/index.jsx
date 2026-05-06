@@ -48,25 +48,24 @@ subscribe(APP_READY, () => {
   // Handler for header navigation
   const handleHeaderNavigation = (tab) => {
     const config = getConfig();
-    const lmsBaseUrl = config.LMS_BASE_URL;
-    const mfeBaseUrl = config.BASE_URL;
-    const learnerDashboardUrl = `${mfeBaseUrl}/learner-dashboard`;
+    const lmsBaseUrl = config.LMS_BASE_URL || window.location.origin;
+    const rawLearnerDashboardUrl = config.LEARNER_DASHBOARD_URL || '/learner-dashboard';
+    const learnerDashboardUrl = new URL(rawLearnerDashboardUrl, window.location.origin)
+      .toString()
+      .replace(/\/?$/, '');
     
     switch (tab) {
       case 'home':
         window.location.href = lmsBaseUrl;
         break;
       case 'category':
-        window.location.href = learnerDashboardUrl;
+        window.location.href = `${learnerDashboardUrl}/`;
         break;
       case 'learning':
         window.location.href = lmsBaseUrl;
         break;
       case 'personalize':
-        // Ensure URL ends with a single trailing slash before adding query string
-        window.location.href = learnerDashboardUrl.endsWith('/')
-          ? `${learnerDashboardUrl}?tab=personalized`
-          : `${learnerDashboardUrl}/?tab=personalized`;
+        window.location.href = `${learnerDashboardUrl}/?tab=personalized`;
         break;
       default:
         break;

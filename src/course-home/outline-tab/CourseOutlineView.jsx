@@ -1593,14 +1593,16 @@ const CourseOutlineView = () => {
                     if (isYouTube) {
                       const embedSrc = pub || (selectedContent.youtubeId ? `https://www.youtube.com/embed/${selectedContent.youtubeId}` : (url || '').replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/'));
                       return (
-                        <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, marginTop: 24 }}>
-                          <iframe
-                            title={selectedContent.title || 'Video'}
-                            src={embedSrc}
-                            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0, borderRadius: 8 }}
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                          />
+                        <div style={{ maxWidth: 980, margin: '24px auto 0', width: '100%' }}>
+                          <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0 }}>
+                            <iframe
+                              title={selectedContent.title || 'Video'}
+                              src={embedSrc}
+                              style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0, borderRadius: 8 }}
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                            />
+                          </div>
                         </div>
                       );
                     }
@@ -1608,13 +1610,15 @@ const CourseOutlineView = () => {
                     if (isDrive) {
                       const driveSrc = pub || (url || '').replace('/view', '/preview');
                       return (
-                        <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, marginTop: 24 }}>
-                          <iframe
-                            title={selectedContent.title || 'Drive Video'}
-                            src={driveSrc}
-                            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0, borderRadius: 8 }}
-                            allowFullScreen
-                          />
+                        <div style={{ maxWidth: 980, margin: '24px auto 0', width: '100%' }}>
+                          <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0 }}>
+                            <iframe
+                              title={selectedContent.title || 'Drive Video'}
+                              src={driveSrc}
+                              style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0, borderRadius: 8 }}
+                              allowFullScreen
+                            />
+                          </div>
                         </div>
                       );
                     }
@@ -1622,7 +1626,9 @@ const CourseOutlineView = () => {
                     // Fallback: regular video element (prefer publicUrl if available)
                     if (url || pub) {
                       return (
-                        <video controls style={{ width: '100%', marginTop: 24, borderRadius: 8 }} src={pub || url} />
+                        <div style={{ maxWidth: 980, margin: '24px auto 0', width: '100%' }}>
+                          <video controls style={{ width: '100%', borderRadius: 8 }} src={pub || url} />
+                        </div>
                       );
                     }
 
@@ -1632,9 +1638,11 @@ const CourseOutlineView = () => {
                 {selectedContent && selectedContent.type === 'slide' && selectedContent.fileUrl && (
                   // Use FileViewer which fetches the remote file as a blob and creates an object URL
                   // so we avoid embedding an insecure HTTP resource directly into the page.
-                  <React.Suspense fallback={<div style={{ height: 420, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span>Đang chuẩn bị trình xem...</span></div>}>
-                    <FileViewer fileUrl={selectedContent.fileUrl} fileName={selectedContent.title || ''} />
-                  </React.Suspense>
+                  <div style={{ maxWidth: 980, margin: '0 auto', width: '100%' }}>
+                    <React.Suspense fallback={<div style={{ height: 420, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span>Đang chuẩn bị trình xem...</span></div>}>
+                      <FileViewer fileUrl={selectedContent.fileUrl} fileName={selectedContent.title || ''} />
+                    </React.Suspense>
+                  </div>
                 )}
                 {selectedContent && selectedContent.type === 'questions' && showQuizListInline && (
                   <>

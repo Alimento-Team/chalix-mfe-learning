@@ -13,6 +13,10 @@ const DateSummary = ({
   dateBlock,
   userTimezone,
 }) => {
+  if (dateBlock.dateType === 'course-end-date') {
+    return null;
+  }
+
   const {
     courseId,
   } = useSelector(state => state.courseHome);

@@ -86,27 +86,31 @@ const FileViewer = ({ fileUrl, fileName }) => {
     // If it's a PDF, use an iframe which most browsers can render inline from a blob URL.
     if (isPdf) {
       return (
-        <iframe
-          title={fileName || 'Document'}
-          src={blobUrl}
-          style={{ width: '100%', minHeight: 420, marginTop: 24, borderRadius: 8, background: '#fff' }}
-        />
+        <div style={{ maxWidth: 980, margin: '24px auto 0', width: '100%' }}>
+          <iframe
+            title={fileName || 'Document'}
+            src={blobUrl}
+            style={{ width: '100%', minHeight: 420, borderRadius: 8, background: '#fff' }}
+          />
+        </div>
       );
     }
 
     // For other types, try an <object> tag which may allow inline rendering for some types,
     // otherwise the browser will show a download prompt / fallback content.
     return (
-      <object data={blobUrl} type="application/octet-stream" style={{ width: '100%', minHeight: 420 }}>
-        <div style={{ padding: 16 }}>
-          <div>Không thể hiển thị tệp trực tiếp.</div>
-          <div style={{ marginTop: 8 }}>
-            <Button variant="primary" href={fileUrl} target="_blank" download>
-              📥 Tải xuống file
-            </Button>
+      <div style={{ maxWidth: 980, margin: '24px auto 0', width: '100%' }}>
+        <object data={blobUrl} type="application/octet-stream" style={{ width: '100%', minHeight: 420 }}>
+          <div style={{ padding: 16 }}>
+            <div>Không thể hiển thị tệp trực tiếp.</div>
+            <div style={{ marginTop: 8 }}>
+              <Button variant="primary" href={fileUrl} target="_blank" download>
+                📥 Tải xuống file
+              </Button>
+            </div>
           </div>
-        </div>
-      </object>
+        </object>
+      </div>
     );
   }
 
