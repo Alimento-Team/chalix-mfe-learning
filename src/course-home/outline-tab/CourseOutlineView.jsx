@@ -125,6 +125,7 @@ const CourseOutlineView = () => {
   const layoutRef = useRef(null);
   const leftPanelRef = useRef(null);
   const rightPanelRef = useRef(null);
+  const activeMediaPlayerRef = useRef(null);
   // Selected unit index and object (must be at top level for React hooks)
   const [selectedUnitIndex, setSelectedUnitIndex] = useState(0);
   // For modal content selection (video/slide/quiz)
@@ -221,6 +222,22 @@ const CourseOutlineView = () => {
       setShowFacialRecorder(false);
     }
   }, [selectedContent, authenticatedUser]);
+
+  useEffect(() => {
+    if (selectedContent?.type !== 'video') {
+      return undefined;
+    }
+
+    const scrollToPlayer = () => {
+      const playerElement = activeMediaPlayerRef.current;
+      if (playerElement?.scrollIntoView) {
+        playerElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    };
+
+    const animationFrameId = window.requestAnimationFrame(scrollToPlayer);
+    return () => window.cancelAnimationFrame(animationFrameId);
+  }, [selectedContent]);
 
   // Fetch course data preferring the LMS aggregate endpoint, with fallbacks
   useEffect(() => {
@@ -1593,7 +1610,7 @@ const CourseOutlineView = () => {
                     if (isYouTube) {
                       const embedSrc = pub || (selectedContent.youtubeId ? `https://www.youtube.com/embed/${selectedContent.youtubeId}` : (url || '').replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/'));
                       return (
-                        <div style={{ maxWidth: 980, margin: '24px auto 0', width: '100%' }}>
+                        <div ref={activeMediaPlayerRef} style={{ maxWidth: 980, margin: '24px auto 0', width: '100%' }}>
                           <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0 }}>
                             <iframe
                               title={selectedContent.title || 'Video'}
@@ -1610,7 +1627,7 @@ const CourseOutlineView = () => {
                     if (isDrive) {
                       const driveSrc = pub || (url || '').replace('/view', '/preview');
                       return (
-                        <div style={{ maxWidth: 980, margin: '24px auto 0', width: '100%' }}>
+                        <div ref={activeMediaPlayerRef} style={{ maxWidth: 980, margin: '24px auto 0', width: '100%' }}>
                           <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0 }}>
                             <iframe
                               title={selectedContent.title || 'Drive Video'}
@@ -1626,7 +1643,7 @@ const CourseOutlineView = () => {
                     // Fallback: regular video element (prefer publicUrl if available)
                     if (url || pub) {
                       return (
-                        <div style={{ maxWidth: 980, margin: '24px auto 0', width: '100%' }}>
+                        <div ref={activeMediaPlayerRef} style={{ maxWidth: 980, margin: '24px auto 0', width: '100%' }}>
                           <video controls style={{ width: '100%', borderRadius: 8 }} src={pub || url} />
                         </div>
                       );
