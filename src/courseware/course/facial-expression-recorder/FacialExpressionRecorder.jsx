@@ -5,8 +5,8 @@ import { getConfig } from '@edx/frontend-platform';
 import './FacialExpressionRecorder.scss';
 
 // Constants for recording configuration
-const MAX_RECORDING_DURATION = 10 * 60 * 1000; // 10 minutes in milliseconds
-const MIN_RECORDING_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+const MAX_RECORDING_DURATION = 1 * 60 * 1000; // 1 minute in milliseconds
+const MIN_RECORDING_DURATION = 30 * 1000; // 30 seconds minimum
 const CHUNK_INTERVAL = 10000; // 10 seconds chunks
 const UPLOAD_INTERVAL = 30000; // Upload every 30 seconds
 const VIDEO_WIDTH = 1280; // 720p width
@@ -341,9 +341,9 @@ const FacialExpressionRecorder = ({
           // Save state periodically
           saveRecordingState(elapsed, false);
           
-          // Stop recording after 10 minutes
+          // Stop recording after 1 minute
           if (elapsed >= MAX_RECORDING_DURATION) {
-            console.log('Maximum recording duration reached (10 minutes)');
+            console.log('Maximum recording duration reached (1 minute)');
             stopRecording();
           }
         }, 1000);
@@ -390,7 +390,7 @@ const FacialExpressionRecorder = ({
       const meetsMinDuration = finalDuration >= MIN_RECORDING_DURATION;
       if (meetsMinDuration) {
         saveRecordingState(finalDuration, true);
-        console.log('Recording meets minimum duration requirement (5 minutes)');
+        console.log('Recording meets minimum duration requirement (30 seconds)');
       } else {
         console.log('Recording does not meet minimum duration. Will need to record again next time.');
         clearRecordingState();
