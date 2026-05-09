@@ -1154,15 +1154,27 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
               const qid = String(q.id || q.pk || idx);
               const userAnswer = answers[qid] || [];
               const userAnswerArray = Array.isArray(userAnswer) ? userAnswer : [userAnswer];
+
+              const responseAnswerDetails = result?.answer_details || result?.answers || [];
+              const responseDetail = Array.isArray(responseAnswerDetails)
+                ? responseAnswerDetails.find(detail => String(detail.question_id) === qid)
+                : null;
               
               // Find correct answers
               const correctChoices = (q.choices || []).filter(c => c.is_correct);
-              const correctIds = correctChoices.map(c => String(c.id || c.pk || c.choice_id));
+              const correctIdsFromQuestion = correctChoices.map(c => String(c.id || c.pk || c.choice_id));
+              const correctIdsFromResponse = (responseDetail?.correct_choice_ids || []).map(id => String(id));
+              const correctIds = correctIdsFromResponse.length > 0 ? correctIdsFromResponse : correctIdsFromQuestion;
+
+              const correctTextsFromResponse = (responseDetail?.correct_choices || []).map(text => String(text || '').trim());
+              const selectedTextsFromResponse = (responseDetail?.selected_choices || []).map(text => String(text || '').trim());
               
               // Check if user's answer is correct
-              const isCorrect = correctIds.length > 0 && 
-                userAnswerArray.length === correctIds.length && 
-                userAnswerArray.every(a => correctIds.includes(String(a)));
+              const isCorrect = typeof responseDetail?.is_correct === 'boolean'
+                ? responseDetail.is_correct
+                : (correctIds.length > 0
+                  && userAnswerArray.length === correctIds.length
+                  && userAnswerArray.every(a => correctIds.includes(String(a))));
               
               const questionNumber = idx + 1;
               
@@ -1189,7 +1201,12 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
                     {(q.choices || []).map((c) => {
                       const cid = String(c.id || c.pk || c.choice_id);
                       const isUserChoice = userAnswerArray.includes(cid);
-                      const isCorrectChoice = c.is_correct;
+                      const choiceText = String(c.text || c.choice_text || c.choice || '').trim();
+                      const isCorrectChoice = correctIds.includes(cid)
+                        || Boolean(c.is_correct)
+                        || (correctTextsFromResponse.length > 0 && correctTextsFromResponse.includes(choiceText));
+                      const isSelectedFromResponse = selectedTextsFromResponse.length > 0 && selectedTextsFromResponse.includes(choiceText);
+                      const isSelectedChoice = isUserChoice || isSelectedFromResponse;
                       
                       let bgColor = '#fff';
                       let borderColor = '#ddd';
@@ -1201,7 +1218,7 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
                         icon = '✓ ';
                       }
                       
-                      if (isUserChoice && !isCorrectChoice) {
+                      if (isSelectedChoice && !isCorrectChoice) {
                         bgColor = '#fee2e2';
                         borderColor = '#ef4444';
                         icon = '✗ ';
@@ -1219,11 +1236,11 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
                             fontSize: 14
                           }}
                         >
-                          <span style={{ fontWeight: isCorrectChoice || isUserChoice ? 600 : 400 }}>
+                          <span style={{ fontWeight: isCorrectChoice || isSelectedChoice ? 600 : 400 }}>
                             {icon}{c.text || c.choice_text || c.choice || ''}
                           </span>
-                          {isUserChoice && (
-                            <span style={{ marginLeft: 8, fontSize: 12, color: '#666' }}>
+                          {isSelectedChoice && (
+                            <span style={{ marginLeft: 8, fontSize: 12, color: isCorrectChoice ? '#166534' : '#666' }}>
                               (Câu trả lời của bạn)
                             </span>
                           )}
