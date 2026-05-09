@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { isCourseStarted } from '../../utils/courseStatus';
 import { useSelector } from 'react-redux';
 import classNames from 'classnames';
@@ -162,6 +162,8 @@ const CourseOutlineView = () => {
   const [quizRemainingTime, setQuizRemainingTime] = useState(null);
   const [quizResults, setQuizResults] = useState(null); // { score, correct_answers, total_questions, passed, attempts_used, attempts_remaining, max_attempts }
   const quizTimerIntervalRef = useRef(null);
+  const [unitMaterialOpenState, setUnitMaterialOpenState] = useState({});
+  const [showPrereqModal, setShowPrereqModal] = useState(false);
 
   // Dev-only: trace when the final confirm modal is requested to help debug accidental opens.
   useEffect(() => {
@@ -172,6 +174,76 @@ const CourseOutlineView = () => {
       console.trace && console.trace('showFinalConfirm trace');
     }
   }, [showFinalConfirm]);
+
+  const markUnitMaterialOpened = useCallback(async (unitKey, materialType) => {
+    if (!unitKey || !['video', 'slide'].includes(materialType)) {
+      return;
+    }
+
+    setUnitMaterialOpenState((prev) => ({
+      ...prev,
+      [unitKey]: {
+        ...(prev[unitKey] || {}),
+        [materialType]: true,
+      },
+    }));
+
+    try {
+      await getAuthenticatedHttpClient().post(
+        `${getConfig().LMS_BASE_URL}/api/learning_analytics/material-open/`,
+        {
+          course_id: courseId,
+          module_type: materialType === 'video' ? 'video' : 'slides',
+        },
+      );
+    } catch (trackingError) {
+      console.warn('Failed to track material open event', trackingError);
+    }
+  }, [courseId]);
+
+  const canStartQuizForUnit = useCallback((unitKey) => {
+    const state = unitMaterialOpenState[unitKey] || {};
+    return Boolean(state.video && state.slide);
+  }, [unitMaterialOpenState]);
+
+  const syncUnitLearningReadiness = useCallback(async () => {
+    if (!courseId || !selectedUnitId) {
+      return;
+    }
+
+    const allUnits = (courseData?.modules || []).flatMap((module) => module.units || []);
+    const totalUnits = allUnits.length || 1;
+    const currentUnitIndex = Math.max(0, allUnits.findIndex((unit) => unit.id === selectedUnitId));
+    const progressPercentage = Math.min(100, Math.round(((currentUnitIndex + 1) / totalUnits) * 100));
+    const nextWeek = Math.min(3, selectedModuleIndex + 2);
+
+    try {
+      await getAuthenticatedHttpClient().post(
+        `${getConfig().LMS_BASE_URL}/api/learning_analytics/student-progress/`,
+        {
+          course_id: courseId,
+          status: progressPercentage >= 100 ? 'completed' : 'in_progress',
+          progress_percentage: progressPercentage,
+        },
+      );
+    } catch (progressError) {
+      console.warn('Failed to update course progress before quiz', progressError);
+    }
+
+    try {
+      await getAuthenticatedHttpClient().get(
+        `${getConfig().LMS_BASE_URL}/api/learning_analytics/student-learning-process/me/`,
+        {
+          params: {
+            course_id: courseId,
+            week_number: nextWeek,
+          },
+        },
+      );
+    } catch (predictionError) {
+      console.warn('Failed to refresh next-unit prediction before quiz', predictionError);
+    }
+  }, [courseData?.modules, courseId, selectedModuleIndex, selectedUnitId]);
 
   // Quiz timer effect
   useEffect(() => {
@@ -1010,6 +1082,7 @@ const CourseOutlineView = () => {
                               type="button"
                               style={{ background: '#0070d2', color: '#fff', border: 'none', borderRadius: 4, padding: '8px 18px', fontWeight: 600, fontSize: 15, cursor: 'pointer' }}
                               onClick={() => {
+                                markUnitMaterialOpened(selectedUnitId, type);
                                 setShowQuizListInline(false);
                                 setModalType(type);
                                 setModalOpen(true);
@@ -1037,6 +1110,12 @@ const CourseOutlineView = () => {
                             type="button"
                             style={{ background: '#0070d2', color: '#fff', border: 'none', borderRadius: 4, padding: '8px 18px', fontWeight: 600, fontSize: 15, cursor: 'pointer' }}
                             onClick={async () => {
+                              if (!canStartQuizForUnit(selectedUnitId)) {
+                                setShowPrereqModal(true);
+                                return;
+                              }
+
+                              await syncUnitLearningReadiness();
                               allowShowFinalConfirmRef.current = false;
                               setShowFinalConfirm(false);
                               
@@ -1092,6 +1171,8 @@ const CourseOutlineView = () => {
                         onClick={async () => {
                           // Prevent multiple clicks
                           if (finalEvaluationLoading) return;
+
+                          await syncUnitLearningReadiness();
                           
                           console.log('🚀 Starting quiz from button click');
                           setFinalEvaluationLoading(true);
@@ -1738,6 +1819,15 @@ const CourseOutlineView = () => {
           }}
         />
       )}
+
+      <AlertModal
+        isOpen={showPrereqModal}
+        title="Cần mở học liệu trước khi làm quiz"
+        onClose={() => setShowPrereqModal(false)}
+        cancelLabel="Đóng"
+      >
+        <p>Vui lòng mở ít nhất 1 video và 1 slide của chuyên đề này trước khi làm bài trắc nghiệm.</p>
+      </AlertModal>
     </div>
   );
 };

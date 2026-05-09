@@ -23,6 +23,7 @@ import { useFinalUnitDetection } from './hooks';
 const FinalEvaluationQuiz = ({ courseId, sequenceId, unitId }) => {
   const intl = useIntl();
   const isFinalUnit = useFinalUnitDetection(sequenceId, unitId);
+  const PASS_THRESHOLD_PERCENT = 80;
   
   const [evaluationConfig, setEvaluationConfig] = useState(null);
   const [quizData, setQuizData] = useState(null);
@@ -37,6 +38,7 @@ const FinalEvaluationQuiz = ({ courseId, sequenceId, unitId }) => {
   const [error, setError] = useState(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [hasExistingResult, setHasExistingResult] = useState(false);
+  const [existingResult, setExistingResult] = useState(null);
   
   // Timer state
   const [timeLimit, setTimeLimit] = useState(null); // in seconds
@@ -106,11 +108,41 @@ const FinalEvaluationQuiz = ({ courseId, sequenceId, unitId }) => {
       const config = await getFinalEvaluationConfig(courseId);
       console.log('✅ Config loaded:', config);
       setEvaluationConfig(config);
+      await loadExistingResult();
     } catch (err) {
       console.error('❌ Failed to load config:', err);
       setError('Failed to load final evaluation configuration');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadExistingResult = async () => {
+    try {
+      const persistedResult = await getFinalEvaluationResult(courseId);
+      if (persistedResult?.completed) {
+        const score = Number(persistedResult.score || 0);
+        const passedByPolicy = score >= PASS_THRESHOLD_PERCENT;
+
+        setExistingResult({
+          ...persistedResult,
+          score,
+          passed: passedByPolicy,
+        });
+        setHasExistingResult(true);
+        setPassed(passedByPolicy);
+        setAttemptsLeft(persistedResult.attempts_left ?? persistedResult.attempts_remaining ?? null);
+        setMinPassingScore(
+          persistedResult.min_passing_score
+          ?? persistedResult.passing_score
+          ?? PASS_THRESHOLD_PERCENT,
+        );
+      }
+    } catch (err) {
+      // 404 means no completed attempt yet; ignore quietly.
+      if (err?.response?.status && err.response.status !== 404) {
+        console.warn('Failed to load persisted final evaluation result', err);
+      }
     }
   };
 
@@ -181,16 +213,14 @@ const FinalEvaluationQuiz = ({ courseId, sequenceId, unitId }) => {
       const submissionResult = await submitFinalEvaluationQuiz(courseId, answers);
       // store raw result
       setResult(submissionResult);
+      setHasExistingResult(true);
       // normalize optional fields that backend may return with different names
       const attempts = submissionResult.attempts_left ?? submissionResult.attemptsLeft ?? null;
-      const minScore = submissionResult.min_passing_score ?? submissionResult.minPassingScore ?? evaluationConfig?.quiz_passing_score ?? null;
+      const minScore = submissionResult.min_passing_score ?? submissionResult.minPassingScore ?? PASS_THRESHOLD_PERCENT;
       setAttemptsLeft(attempts);
       setMinPassingScore(minScore);
       const resolvedScore = Math.round(submissionResult.score || 0);
-      const resolvedMin = minScore || 0;
-      const isPassed = (submissionResult.passed !== undefined)
-        ? Boolean(submissionResult.passed)
-        : (resolvedScore >= resolvedMin);
+      const isPassed = resolvedScore >= PASS_THRESHOLD_PERCENT;
       setPassed(isPassed);
       setShowQuiz(false);
     } catch (err) {
@@ -208,6 +238,12 @@ const FinalEvaluationQuiz = ({ courseId, sequenceId, unitId }) => {
     if (score >= 80) return 'success';
     if (score >= 60) return 'warning';
     return 'danger';
+  };
+
+  const formatScoreOverTen = (scorePercent) => {
+    const normalized = Math.max(0, Math.min(100, Number(scorePercent || 0)));
+    const score10 = (normalized / 10).toFixed(1).replace(/\.0$/, '');
+    return `${score10}/10`;
   };
 
   const formatTime = (seconds) => {
@@ -268,17 +304,20 @@ const FinalEvaluationQuiz = ({ courseId, sequenceId, unitId }) => {
     );
   }
 
-  // Show final results if quiz is completed
+  // Show final results from current submission or latest persisted attempt.
   if (result || hasExistingResult) {
-    const finalResult = result || {};
+    const finalResult = result || existingResult || {};
     const score = Math.round(finalResult.score || 0);
     const totalQuestions = finalResult.total_questions || quizData?.questions?.length || 0;
     const correctAnswers = finalResult.correct_answers || 0;
+    const latestScoreLabel = formatScoreOverTen(score);
+    const passedByPolicy = score >= PASS_THRESHOLD_PERCENT;
+    const resolvedAttemptsLeft = finalResult.attempts_left ?? finalResult.attempts_remaining ?? attemptsLeft;
 
     return (
       <Card className="mt-4 p-4">
         <div className="text-center">
-          <CheckCircle className={`mb-3 ${passed ? 'text-success' : 'text-danger'}`} size="lg" />
+          <CheckCircle className={`mb-3 ${passedByPolicy ? 'text-success' : 'text-danger'}`} size="lg" />
           <h3>{intl.formatMessage(messages.quizCompleted)}</h3>
           
           <div className="mt-4">
@@ -288,6 +327,9 @@ const FinalEvaluationQuiz = ({ courseId, sequenceId, unitId }) => {
                   <h4 className={`text-${getScoreColor(score)} mb-0`}>
                     {intl.formatMessage(messages.finalScore)}: {score}%
                   </h4>
+                  <div className="mt-2 text-muted">
+                    Kết quả gần nhất: <strong>{latestScoreLabel}</strong>
+                  </div>
                 </Card>
                 
                 <Card className="p-3" style={{ backgroundColor: '#f8f9fa' }}>
@@ -303,7 +345,7 @@ const FinalEvaluationQuiz = ({ courseId, sequenceId, unitId }) => {
                     {intl.formatMessage(messages.minPassingScore)}: {minPassingScore ?? '—'}%
                   </div>
                   <div className="mt-1 text-muted">
-                    {intl.formatMessage(messages.attemptsLeft)}: {attemptsLeft ?? '—'}
+                    {intl.formatMessage(messages.attemptsLeft)}: {resolvedAttemptsLeft ?? '—'}
                   </div>
                 </Card>
               </div>
@@ -312,20 +354,20 @@ const FinalEvaluationQuiz = ({ courseId, sequenceId, unitId }) => {
 
           <div className="mt-4">
             <p className="text-muted">
-              {passed ? intl.formatMessage(messages.quizCompletedMessage) : intl.formatMessage(messages.quizFailedMessage)}
+              {passedByPolicy ? intl.formatMessage(messages.quizCompletedMessage) : intl.formatMessage(messages.quizFailedMessage)}
             </p>
 
-            {!passed && (
+            {!passedByPolicy && (
               <div className="mt-3">
-                {attemptsLeft > 0 ? (
+                {resolvedAttemptsLeft === 0 ? (
+                  <Alert variant="warning">{intl.formatMessage(messages.noAttemptsLeft)}</Alert>
+                ) : (
                   <Button
                     variant="primary"
                     onClick={handleStartQuiz}
                   >
                     {intl.formatMessage(messages.retakeQuiz)}
                   </Button>
-                ) : (
-                  <Alert variant="warning">{intl.formatMessage(messages.noAttemptsLeft)}</Alert>
                 )}
               </div>
             )}
@@ -480,6 +522,12 @@ const FinalEvaluationQuiz = ({ courseId, sequenceId, unitId }) => {
       <p className="text-muted mb-4">
         {intl.formatMessage(messages.finalEvaluationDescription)}
       </p>
+
+      {existingResult && Number(existingResult.score || 0) < PASS_THRESHOLD_PERCENT && (
+        <div className="mb-3 text-muted">
+          Kết quả gần nhất: <strong>{formatScoreOverTen(existingResult.score)}</strong>
+        </div>
+      )}
       
       <Button
         variant="primary"
