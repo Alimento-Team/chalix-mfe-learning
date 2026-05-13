@@ -206,6 +206,25 @@ const CourseOutlineView = () => {
     return Boolean(state.video && state.slide);
   }, [unitMaterialOpenState]);
 
+  // Compute allUnits and selectedUnit early so downstream hooks can safely depend on selectedUnitId.
+  const allUnits = useMemo(() => {
+    if (!courseData || !Array.isArray(courseData.modules)) {
+      return [];
+    }
+    const list = [];
+    courseData.modules.forEach((module) => {
+      if (Array.isArray(module.units)) {
+        module.units.forEach((unit) => {
+          list.push({ ...unit, sectionTitle: module.title });
+        });
+      }
+    });
+    return list;
+  }, [courseData]);
+
+  const selectedUnit = useMemo(() => allUnits[selectedUnitIndex] || null, [allUnits, selectedUnitIndex]);
+  const selectedUnitId = selectedUnit?.id;
+
   const syncUnitLearningReadiness = useCallback(async () => {
     if (!courseId || !selectedUnitId) {
       return;
@@ -550,25 +569,6 @@ const CourseOutlineView = () => {
       fetchCourseData();
     }
   }, [courseId]);
-
-  // Compute allUnits and selectedUnit; memoize to keep stable references between renders
-  const allUnits = useMemo(() => {
-    if (!courseData || !Array.isArray(courseData.modules)) {
-      return [];
-    }
-    const list = [];
-    courseData.modules.forEach((module) => {
-      if (Array.isArray(module.units)) {
-        module.units.forEach((unit) => {
-          list.push({ ...unit, sectionTitle: module.title });
-        });
-      }
-    });
-    return list;
-  }, [courseData]);
-
-  const selectedUnit = useMemo(() => allUnits[selectedUnitIndex] || null, [allUnits, selectedUnitIndex]);
-  const selectedUnitId = selectedUnit?.id;
 
   // Make courseInfo/modules available as stable references for hooks used below.
   // These use optional chaining so they are safe to evaluate even when courseData is null.
