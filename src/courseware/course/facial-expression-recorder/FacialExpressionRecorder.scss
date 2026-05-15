@@ -120,8 +120,8 @@
     }
 }
 
-// Responsive adjustments
-@media (max-width: 768px) {
+// Responsive adjustments — migrated from raw max-width: 768px to Paragon token (Phase 2)
+@media (--pgn-size-breakpoint-max-width-sm) {
     .facial-expression-recorder {
         bottom: 10px;
         right: 10px;
