@@ -1,0 +1,131 @@
+// Mobile Unit Chooser Responsive Styles
+// Ensures burger and modal do not overlap with navigation controls
+
+.mobile-unit-chooser-trigger-wrapper {
+  // Mobile-only visibility (show only on small screens)
+  @media (--pgn-size-breakpoint-max-width-lg) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    // Enforce touch target minimum (44x44px)
+    .mobile-unit-chooser-trigger {
+      min-width: 44px;
+      min-height: 44px;
+      padding: 8px;
+      border-radius: 4px;
+
+      // Prevent overlapping with adjacent controls
+      margin-left: 8px;
+      margin-right: 4px;
+
+      // Ensure it stays within viewport bounds on narrow screens
+      @media (--pgn-size-breakpoint-max-width-md) {
+        // Extra tight margin on xs to prevent squeeze
+        margin: 4px 2px;
+      }
+
+      // Hover state for better UX
+      &:hover,
+      &:focus {
+        background-color: rgba(0, 0, 0, 0.08);
+      }
+    }
+  }
+
+  // Hide on desktop/tablet persistent sidebar mode
+  @media (min-width: 1200px) {
+    display: none;
+  }
+}
+
+.mobile-unit-chooser-sheet {
+  // Sheet styling overrides
+  @media (--pgn-size-breakpoint-max-width-lg) {
+    z-index: 1000; // Above sequence navigation
+
+    .pgn__sheet-content {
+      width: min(100vw, 420px);
+      max-width: 100vw;
+      overflow-x: hidden;
+    }
+
+    @media (--pgn-size-breakpoint-max-width-xs) {
+      .pgn__sheet-content {
+        width: 100vw;
+      }
+    }
+  }
+}
+
+.mobile-unit-chooser-content {
+  // Content area padding
+  padding: 16px 0;
+
+  @media (--pgn-size-breakpoint-max-width-md) {
+    padding: 12px 0;
+  }
+}
+
+.mobile-unit-chooser-header {
+  // Header for sheet title and close action
+  padding: 8px 16px;
+  border-bottom: 1px solid #e0e0e0;
+
+  @media (--pgn-size-breakpoint-max-width-md) {
+    padding: 8px 12px;
+  }
+}
+
+.mobile-unit-chooser-subheader {
+  padding: 8px 16px;
+  border-bottom: 1px solid #e0e0e0;
+
+  @media (--pgn-size-breakpoint-max-width-md) {
+    padding: 8px 12px;
+  }
+}
+
+.mobile-unit-chooser-back-btn {
+  // Back button styling
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.mobile-unit-chooser-list {
+  // List container
+  margin: 0;
+  padding: 0;
+
+  .mobile-unit-chooser-sequence-item,
+  .mobile-unit-chooser-section-item {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+
+    // Ensure unit rows are touchable (min 44px height)
+    li {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+
+      @media (--pgn-size-breakpoint-max-width-md) {
+        min-height: 40px; // Slightly tighter on xs
+      }
+    }
+  }
+}
+
+// Prevent horizontal overflow in chooser on mobile
+@media (--pgn-size-breakpoint-max-width-lg) {
+  .mobile-unit-chooser-sheet,
+  .mobile-unit-chooser-content {
+    overflow-x: hidden;
+  }
+}

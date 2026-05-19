@@ -523,6 +523,106 @@ footer {
   }
 }
 
+// === PHASE 2: Mobile Responsive Safeguards for iPhone SE (320-390px) ===
+// Prevent overlap between burger, prev/next, and sequence navigation controls
+
+// Sequence Navigation Container - Flex layout to prevent overlap
+.sequence-navigation-container {
+  flex-wrap: nowrap;
+  gap: 4px;
+  min-height: 44px; // Ensure touch target minimum
+
+  @media (--pgn-size-breakpoint-max-width-md) {
+    gap: 2px; // Reduce gap on very narrow screens
+
+    // Prevent horizontal scroll by constraining width
+    max-width: 100%;
+    overflow-x: hidden;
+
+    // Left side (sequence nav tabs) takes most space
+    .sequence-navigation-slot-wrapper {
+      min-width: 0; // Allows flex shrinking
+      flex: 1 1 auto;
+    }
+  }
+}
+
+// Sequence Navigation Bar - Prevent next/previous clipping
+.sequence-navigation {
+  @media (--pgn-size-breakpoint-max-width-md) {
+    flex-wrap: wrap; // Allow wrapping if needed
+    max-width: 100%; // Prevent overflow
+
+    // Buttons: Previous, Tabs, Next
+    .previous-btn,
+    .next-btn {
+      flex-shrink: 0; // Don't shrink below natural size
+      min-width: 44px; // Touch target
+      min-height: 44px;
+    }
+
+    // Tab container overflow handling
+    .sequence-navigation-tabs-container {
+      overflow-x: auto; // Horizontal scroll for tabs if needed
+      -webkit-overflow-scrolling: touch; // Smooth momentum scrolling on iOS
+      min-width: 0; // Allow shrinking
+    }
+  }
+
+  @media (--pgn-size-breakpoint-max-width-xs) {
+    // Extra tight on xs (320-375px)
+    gap: 0; // Remove gaps
+
+    .previous-btn,
+    .next-btn {
+      min-width: 40px; // Still touch-safe
+      padding: 8px 4px;
+    }
+  }
+}
+
+// Unit Container - No horizontal scroll
+.unit-container {
+  @media (--pgn-size-breakpoint-max-width-md) {
+    max-width: 100%;
+    overflow-x: hidden;
+    padding-left: 16px;
+    padding-right: 16px;
+
+    @media (--pgn-size-breakpoint-max-width-xs) {
+      padding-left: 12px;
+      padding-right: 12px;
+    }
+  }
+}
+
+// Sequence Container - Prevent overflow on narrow screens
+.sequence-container {
+  @media (--pgn-size-breakpoint-max-width-md) {
+    max-width: 100%;
+    overflow-x: hidden;
+    margin-right: 0;
+    margin-left: 0;
+  }
+}
+
+// Sequence Base - Handle mobile width constraints
+.sequence {
+  @media (--pgn-size-breakpoint-max-width-md) {
+    max-width: 100%;
+    border: none; // Remove border on mobile to save space
+  }
+}
+
+// Notification and Alert areas - Keep within viewport
+.notification-area,
+.alert-container {
+  @media (--pgn-size-breakpoint-max-width-md) {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+}
+
 // Import component-specific sass files
 @import "courseware/course/celebration/CelebrationModal.scss";
 @import "courseware/course/sidebar/sidebars/discussions/Discussions.scss";

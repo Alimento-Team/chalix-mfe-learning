@@ -132,3 +132,42 @@
         }
     }
 }
+
+// === PHASE 2: Mobile Safeguards ===
+// Prevent facial recorder from blocking burger, sequence navigation, or unit content (iPhone SE, 320-390px)
+
+@media (--pgn-size-breakpoint-max-width-md) {
+    .facial-expression-recorder {
+        // Keep away from top-right burger area
+        top: auto;
+        bottom: 20px;
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%); // Center horizontally at bottom
+        z-index: 95; // Below burger (z-index 100+)
+
+        @media (--pgn-size-breakpoint-max-width-xs) {
+            // Extra tight on xs: reduce size and reposition
+            bottom: 10px;
+            right: auto;
+            left: 50%;
+            transform: translateX(-50%);
+
+            .webcam-container {
+                width: 100px;
+                height: 75px;
+                max-width: calc(100vw - 20px); // Don't exceed viewport
+            }
+        }
+
+        // Prevent recorder from appearing on top of navigation when width < 480px
+        @media (max-width: 480px) {
+            display: none; // Hide recorder on very narrow screens to prevent all overlap
+            
+            // OR alternatively, keep it visible but constrained:
+            // bottom: 100px; // Move above keyboard on mobile
+            // max-width: 150px;
+            // max-height: 112px;
+        }
+    }
+}

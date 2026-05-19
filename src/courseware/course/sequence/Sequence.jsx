@@ -18,6 +18,7 @@ import SequenceContainerSlot from '@src/plugin-slots/SequenceContainerSlot';
 import { CourseOutlineSidebarSlot } from '@src/plugin-slots/CourseOutlineSidebarSlot';
 import { CourseOutlineSidebarTriggerSlot } from '@src/plugin-slots/CourseOutlineSidebarTriggerSlot';
 import { NotificationsDiscussionsSidebarSlot } from '@src/plugin-slots/NotificationsDiscussionsSidebarSlot';
+import MobileUnitChooser from '../mobile-unit-chooser/MobileUnitChooser';
 import SequenceNavigationSlot from '@src/plugin-slots/SequenceNavigationSlot';
 
 import CourseLicense from '../course-license';
@@ -211,7 +212,7 @@ const Sequence = ({
         />
         <CourseOutlineSidebarSlot />
         <div className="sequence w-100">
-          <div className="sequence-navigation-container">
+          <div className="sequence-navigation-container d-flex align-items-center justify-content-between">
             {/**
              SequenceNavigationSlot renders nothing by default.
              However, we still pass nextHandler, previousHandler, and onNavigate,
@@ -220,14 +221,22 @@ const Sequence = ({
              These handlers are excluded from test coverage via istanbul ignore,
              since they are not used unless the slot is overridden.
              */}
-            <SequenceNavigationSlot
-              sequenceId={sequenceId}
-              unitId={unitId}
-              {...{
-                ...sequenceNavProps,
-                nextSequenceHandler,
-                handleNavigate,
-              }}
+            <div className="sequence-navigation-slot-wrapper flex-grow-1">
+              <SequenceNavigationSlot
+                sequenceId={sequenceId}
+                unitId={unitId}
+                {...{
+                  ...sequenceNavProps,
+                  nextSequenceHandler,
+                  handleNavigate,
+                }}
+              />
+            </div>
+            {/* Mobile-only unit chooser trigger at top-right */}
+            <MobileUnitChooser
+              currentUnitId={unitId}
+              onUnitSelect={handleNavigate}
+              isMobileView
             />
           </div>
 
