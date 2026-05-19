@@ -163,7 +163,7 @@
         // Prevent recorder from appearing on top of navigation when width < 480px
         @media (max-width: 480px) {
             display: none; // Hide recorder on very narrow screens to prevent all overlap
-            
+
             // OR alternatively, keep it visible but constrained:
             // bottom: 100px; // Move above keyboard on mobile
             // max-width: 150px;

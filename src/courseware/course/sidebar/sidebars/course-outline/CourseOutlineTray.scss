@@ -104,62 +104,62 @@
 // Ensure drawer doesn't overflow on narrow screens (iPhone SE, 320-390px)
 
 .outline-sidebar-wrapper {
-  @media (--pgn-size-breakpoint-max-width-md) {
-    // Mobile: Ensure wrapper doesn't exceed viewport
-    width: 100% !important;
-    max-width: 100vw;
-    overflow-x: hidden;
+    @media (--pgn-size-breakpoint-max-width-md) {
+        // Mobile: Ensure wrapper doesn't exceed viewport
+        width: 100% !important;
+        max-width: 100vw;
+        overflow-x: hidden;
 
-    // Full-screen drawer mode on mobile
-    &.fixed-top {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      z-index: 1000;
-      width: 100%;
-      height: 100vh;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch; // Smooth scrolling on iOS
+        // Full-screen drawer mode on mobile
+        &.fixed-top {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1000;
+            width: 100%;
+            height: 100vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch; // Smooth scrolling on iOS
+        }
     }
-  }
 
-  @media (--pgn-size-breakpoint-max-width-xs) {
-    // Extra tight on xs (320-375px)
-    max-width: 100%;
-    min-height: 100vh;
-  }
+    @media (--pgn-size-breakpoint-max-width-xs) {
+        // Extra tight on xs (320-375px)
+        max-width: 100%;
+        min-height: 100vh;
+    }
 }
 
 .outline-sidebar {
-  @media (--pgn-size-breakpoint-max-width-md) {
-    // Ensure sidebar content doesn't overflow
-    width: 100%;
-    max-width: 100%;
-    overflow-x: hidden;
-  }
+    @media (--pgn-size-breakpoint-max-width-md) {
+        // Ensure sidebar content doesn't overflow
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
 }
 
 #outline-sidebar-outline {
-  @media (--pgn-size-breakpoint-max-width-md) {
-    // Prevent horizontal scroll on mobile lists
-    max-width: 100%;
-    overflow-x: hidden;
+    @media (--pgn-size-breakpoint-max-width-md) {
+        // Prevent horizontal scroll on mobile lists
+        max-width: 100%;
+        overflow-x: hidden;
 
-    li {
-      max-width: 100%;
-      overflow-x: hidden;
+        li {
+            max-width: 100%;
+            overflow-x: hidden;
 
-      .collapsible-trigger {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+            .collapsible-trigger {
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
 
-        @media (--pgn-size-breakpoint-max-width-xs) {
-          padding-left: var(--pgn-spacing-spacer-3); // Reduce left padding on xs
+                @media (--pgn-size-breakpoint-max-width-xs) {
+                    padding-left: var(--pgn-spacing-spacer-3); // Reduce left padding on xs
+                }
+            }
         }
-      }
     }
-  }
 }
