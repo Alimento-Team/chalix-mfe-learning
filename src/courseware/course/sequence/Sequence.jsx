@@ -8,7 +8,7 @@ import {
 } from '@edx/frontend-platform/analytics';
 import { useIntl } from '@edx/frontend-platform/i18n';
 import { useSelector } from 'react-redux';
-import { Card, Button } from '@openedx/paragon';
+import { Card, Button, useWindowSize, breakpoints } from '@openedx/paragon';
 import SequenceExamWrapper from '@edx/frontend-lib-special-exams';
 
 import PageLoading from '@src/generic/PageLoading';
@@ -38,6 +38,9 @@ const Sequence = ({
   previousSequenceHandler,
 }) => {
   const intl = useIntl();
+  const { width } = useWindowSize();
+  // Mobile view is when width is below the small breakpoint (576px)
+  const isMobileView = width < breakpoints.small.minWidth;
   const {
     canAccessProctoredExams,
     license,
@@ -233,11 +236,11 @@ const Sequence = ({
               />
             </div>
             {/* Mobile-only unit chooser trigger at top-right */}
-            <MobileUnitChooser
-              currentUnitId={unitId}
-              onUnitSelect={handleNavigate}
-              isMobileView
-            />
+            {isMobileView && (
+              <MobileUnitChooser
+                currentUnitId={unitId}
+              />
+            )}
           </div>
 
           <div className="unit-container flex-grow-1 pt-4">

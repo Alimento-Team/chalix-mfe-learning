@@ -19,7 +19,6 @@ import './MobileUnitChooser.scss';
 
 const MobileUnitChooser = ({
   currentUnitId,
-  isMobileView,
 }) => {
   const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);
@@ -36,8 +35,9 @@ const MobileUnitChooser = ({
     isActiveEntranceExam,
   } = useCourseOutlineSidebar();
 
-  // Only show on mobile
-  if (!isMobileView || !shouldDisplayFullScreen || isActiveEntranceExam) {
+  // Only show on mobile when sidebar is in full-screen drawer mode
+  // shouldDisplayFullScreen is true when viewport width < breakpoints.extraLarge.minWidth (1200px)
+  if (!shouldDisplayFullScreen || isActiveEntranceExam) {
     return null;
   }
 
@@ -153,12 +153,10 @@ const MobileUnitChooser = ({
 
 MobileUnitChooser.propTypes = {
   currentUnitId: PropTypes.string,
-  isMobileView: PropTypes.bool,
 };
 
 MobileUnitChooser.defaultProps = {
   currentUnitId: null,
-  isMobileView: false,
 };
 
 export default MobileUnitChooser;
