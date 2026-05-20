@@ -25,7 +25,8 @@ const FacialExpressionRecorder = ({
   const [isRecording, setIsRecording] = useState(false);
   const [hasPermission, setHasPermission] = useState(null);
   const [cameraError, setCameraError] = useState('');
-  const [recordingChunks, setRecordingChunks] = useState([]);
+  // Use a ref (not state) so interval callbacks always read the live buffer
+  const recordingChunksRef = useRef([]);
   const uploadIntervalRef = useRef(null);
   const recordingStartTimeRef = useRef(null);
   const recordingTimerRef = useRef(null);
@@ -161,34 +162,21 @@ const FacialExpressionRecorder = ({
 
   // Request camera permission and start recording when component is active
   useEffect(() => {
-    console.log('FacialExpressionRecorder - useEffect triggered', {
-      isActive,
-      hasPermission,
-      isRecording,
-    });
-
-    // Skip recording if there's a valid previous recording
-    const hasPreviousValidRecording = checkPreviousRecording();
-    if (hasPreviousValidRecording) {
-      console.log('Skipping recording - valid previous recording exists');
-      return;
-    }
-
+    // Always request camera access so the preview shows even when a previous
+    // recording already exists (do NOT bail early before this call).
     if (isActive && hasPermission === null) {
-      console.log('FacialExpressionRecorder - Requesting camera permission');
       requestCameraPermission();
     }
 
-    if (isActive && hasPermission === true && !isRecording) {
-      console.log('FacialExpressionRecorder - Starting recording');
+    // Only start a new recording session when there is no previous valid one.
+    const hasPreviousValidRecording = checkPreviousRecording();
+    if (isActive && hasPermission === true && !isRecording && !hasPreviousValidRecording) {
       startRecording();
     }
 
     if (!isActive && isRecording) {
-      console.log('FacialExpressionRecorder - Stopping recording');
       stopRecording();
     }
-
   }, [isActive, hasPermission, isRecording, checkPreviousRecording]);
 
   // Cleanup streams/intervals only when component unmounts.
@@ -294,7 +282,7 @@ const FacialExpressionRecorder = ({
 
   const handleDataAvailable = useCallback(({ data }) => {
     if (data.size > 0) {
-      setRecordingChunks((prev) => [...prev, data]);
+      recordingChunksRef.current.push(data);
     }
   }, []);
 
@@ -327,7 +315,8 @@ const FacialExpressionRecorder = ({
         recordingStartTimeRef.current = Date.now();
         setRecordingDuration(0);
 
-        // Set up periodic upload of recorded chunks (every 30 seconds)
+        // Set up periodic upload of recorded chunks (every 30 seconds).
+        // uploadRecordedChunks reads recordingChunksRef so it is always fresh.
         uploadIntervalRef.current = setInterval(() => {
           uploadRecordedChunks();
         }, UPLOAD_INTERVAL);
@@ -355,7 +344,7 @@ const FacialExpressionRecorder = ({
         }
       }
     }
-  }, [handleDataAvailable, onError, saveRecordingState]);
+  }, [handleDataAvailable, onError, saveRecordingState, uploadRecordedChunks]);
 
   useEffect(() => {
     if (hasPermission && streamRef.current && videoRef.current) {
@@ -400,22 +389,25 @@ const FacialExpressionRecorder = ({
         uploadRecordedChunks(true, finalDuration);
       }, 1000);
     }
-  }, [isRecording, recordingDuration, saveRecordingState, clearRecordingState]);
+  }, [isRecording, recordingDuration, saveRecordingState, clearRecordingState, uploadRecordedChunks]);
 
   const uploadRecordedChunks = useCallback(async (isFinal = false, duration = null) => {
-    if (recordingChunks.length === 0) {
+    // Snapshot and immediately clear the ref so new chunks from an ongoing
+    // recording are not lost while the async upload is in flight.
+    const chunks = recordingChunksRef.current;
+    if (chunks.length === 0) {
       return;
     }
+    recordingChunksRef.current = [];
 
     try {
-      const blob = new Blob(recordingChunks, { type: 'video/webm' });
+      const blob = new Blob(chunks, { type: 'video/webm' });
       const formData = new FormData();
-      
-      // Calculate duration if not provided
-      const recordingDurationSeconds = duration 
+
+      const recordingDurationSeconds = duration
         ? Math.floor(duration / 1000)
         : Math.floor((Date.now() - (recordingStartTimeRef.current || Date.now())) / 1000);
-      
+
       formData.append('video', blob, `facial_${Date.now()}.webm`);
       formData.append('course_id', courseId);
       formData.append('unit_id', unitId);
@@ -433,21 +425,12 @@ const FacialExpressionRecorder = ({
       });
 
       console.log('Video chunk uploaded successfully. Duration:', recordingDurationSeconds, 'seconds');
-
-      // Clear uploaded chunks
-      setRecordingChunks([]);
     } catch (error) {
       console.error('Error uploading facial expression video:', error);
-      // Don't show error to user for upload failures to avoid disrupting learning
+      // Restore chunks on failure so the next interval can retry them
+      recordingChunksRef.current = [...chunks, ...recordingChunksRef.current];
     }
-  }, [recordingChunks, courseId, unitId]);
-
-  // Update chunks state when new data is available
-  useEffect(() => {
-    if (recordingChunks.length > 0) {
-      // Optional: Could trigger upload here if chunks exceed certain size
-    }
-  }, [recordingChunks]);
+  }, [courseId, unitId]);
 
   if (!isActive) {
     return null;
