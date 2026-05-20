@@ -178,6 +178,11 @@
     color: #555;
 }
 
+.mobile-unit-burger,
+.mobile-unit-drawer {
+    display: none;
+}
+
 .unit-card__actions {
     display: flex;
     gap: 8px;
@@ -849,6 +854,103 @@
     align-items: center;
 }
 
+/* ── Media fullscreen overlay ── */
+.media-viewer-overlay {
+    /* Desktop: plain flow wrapper (invisible container when empty) */
+    position: relative;
+
+    &__close {
+        display: none;
+        /* hidden on desktop */
+    }
+
+    &__player {
+        max-width: 980px;
+        margin: 24px auto 0;
+        width: 100%;
+    }
+}
+
+@media (max-width: 768px) {
+    .media-viewer-overlay.is-open {
+        position: fixed;
+        inset: 0;
+        z-index: 1400;
+        background: #000;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .media-viewer-overlay__close {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: absolute;
+        top: 10px;
+        right: 12px;
+        width: 36px;
+        height: 36px;
+        border: none;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.18);
+        color: #fff;
+        font-size: 18px;
+        z-index: 1401;
+        cursor: pointer;
+        line-height: 1;
+    }
+
+    .media-viewer-overlay__player {
+        flex: 1;
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+        padding-top: 56px;
+        /* clear the close button */
+        display: flex;
+        flex-direction: column;
+        overflow: auto;
+
+        >div,
+        >video {
+            flex: 1;
+        }
+
+        /* Make the 16:9 aspect-ratio wrapper fill all available height */
+        >div>div[style*='paddingBottom'] {
+            padding-bottom: 0 !important;
+            flex: 1;
+            height: 100% !important;
+            position: relative;
+        }
+
+        iframe,
+        video {
+            position: absolute;
+            inset: 0;
+            width: 100% !important;
+            height: 100% !important;
+            border-radius: 0 !important;
+        }
+    }
+
+    /* Topic-review: flush layout on small screens */
+    .topic-review {
+        margin-top: 8px;
+        padding: 8px 0 0;
+        justify-content: center;
+    }
+
+    .chalix-review-widget,
+    .authoring-content-list .chalix-review-widget,
+    .authoring-content-list .topic-review .chalix-review-widget {
+        max-width: 100%;
+        margin-left: 0;
+        width: 100%;
+    }
+}
+
 /* Force-review-widget image constraints so Figma assets can't overflow layout */
 .chalix-review-widget,
 .authoring-content-list .chalix-review-widget,
@@ -922,7 +1024,6 @@
         margin: 0 8px !important;
     }
 
-    .course-learning-view .course-authoring-layout>.authoring-section-list,
     .course-learning-view .course-authoring-layout>.authoring-content-list {
         grid-column: 1 / -1 !important;
         width: 100% !important;
@@ -930,7 +1031,76 @@
     }
 
     .course-learning-view .course-authoring-layout>.authoring-section-list {
-        max-height: 42vh;
+        display: none !important;
+    }
+
+    .mobile-unit-burger {
+        display: inline-flex;
+        position: fixed;
+        left: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 46px;
+        height: 46px;
+        border: none;
+        border-radius: 999px;
+        background: #0070d2;
+        color: #fff;
+        align-items: center;
+        justify-content: center;
+        z-index: 1200;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .mobile-unit-drawer {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: #fff;
+        z-index: 1250;
+        transform: translateX(-100%);
+        transition: transform 0.22s ease;
+    }
+
+    .mobile-unit-drawer.is-open {
+        transform: translateX(0);
+    }
+
+    .mobile-unit-drawer__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 12px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .mobile-unit-drawer__title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #1f2937;
+    }
+
+    .mobile-unit-drawer__close {
+        border: none;
+        background: transparent;
+        color: #0070d2;
+        font-size: 14px;
+        font-weight: 600;
+        padding: 8px;
+    }
+
+    .mobile-unit-drawer__body {
+        height: calc(100% - 60px);
+        overflow: auto;
+        padding: 10px;
+    }
+
+    .mobile-unit-drawer__list {
+        display: flex;
+        width: 100%;
+        min-height: calc(100vh - 90px);
+        max-height: none;
+        border: 1px solid #9b9595;
     }
 }
 
