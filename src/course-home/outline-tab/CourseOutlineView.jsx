@@ -991,10 +991,10 @@ const CourseOutlineView = () => {
       <div
         className="course-authoring-layout"
         ref={layoutRef}
-        style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: '24px', ...(debugEnabled ? { outline: '3px dashed rgba(255,0,0,0.6)' } : {}) }}
+        style={{ ...(debugEnabled ? { outline: '3px dashed rgba(255,0,0,0.6)' } : {}) }}
       >
         {/* Left Panel: Modules with nested units (read-only, mirror authoring but without edit actions) */}
-        <div ref={leftPanelRef} className="authoring-section-list" style={{ gridColumn: '1 / 2', ...(debugEnabled ? { outline: '2px solid rgba(0,128,255,0.6)', background: 'rgba(0,128,255,0.02)' } : {}) }}>
+        <div ref={leftPanelRef} className="authoring-section-list" style={{ ...(debugEnabled ? { outline: '2px solid rgba(0,128,255,0.6)', background: 'rgba(0,128,255,0.02)' } : {}) }}>
           <div className="modules-scroll">
             {modules.map((module, mIndex) => (
               <div key={module.id} className={classNames('module-item', { active: module.id === selectedUnit?.sectionId })}>
@@ -1044,7 +1044,7 @@ const CourseOutlineView = () => {
         </div>
 
         {/* Right Panel: Content for Selected Unit */}
-        <div ref={rightPanelRef} className="authoring-content-list" style={{ gridColumn: '2 / 3', ...(debugEnabled ? { outline: '2px solid rgba(0,192,0,0.6)', background: 'rgba(0,192,0,0.02)' } : {}) }}>
+        <div ref={rightPanelRef} className="authoring-content-list" style={{ ...(debugEnabled ? { outline: '2px solid rgba(0,192,0,0.6)', background: 'rgba(0,192,0,0.02)' } : {}) }}>
           {selectedUnit ? (
             <>
               <div className="content-scroll">

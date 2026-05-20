@@ -915,6 +915,25 @@
     grid-column: 2 / 3 !important;
 }
 
+@media (max-width: 768px) {
+    .course-learning-view .course-authoring-layout {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+        margin: 0 8px !important;
+    }
+
+    .course-learning-view .course-authoring-layout>.authoring-section-list,
+    .course-learning-view .course-authoring-layout>.authoring-content-list {
+        grid-column: 1 / -1 !important;
+        width: 100% !important;
+        min-height: auto;
+    }
+
+    .course-learning-view .course-authoring-layout>.authoring-section-list {
+        max-height: 42vh;
+    }
+}
+
 /* Course details grid */
 .course-details-grid {
     display: grid;
