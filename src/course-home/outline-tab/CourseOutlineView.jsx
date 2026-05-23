@@ -233,6 +233,11 @@ const CourseOutlineView = () => {
     }
   }, []);
 
+  // Declared early so hooks below (useCallback dep arrays) can reference them
+  // without hitting the temporal dead zone.
+  const modules = courseData?.modules || [];
+  const courseInfo = courseData?.course_info || {};
+
   const renderModuleUnitList = useCallback(() => (
     <div className="modules-scroll">
       {modules.map((module) => (
@@ -626,11 +631,6 @@ const CourseOutlineView = () => {
       fetchCourseData();
     }
   }, [courseId]);
-
-  // Make courseInfo/modules available as stable references for hooks used below.
-  // These use optional chaining so they are safe to evaluate even when courseData is null.
-  const modules = courseData?.modules || [];
-  const courseInfo = courseData?.course_info || {};
 
   // Determine whether the selected unit is the final evaluation unit.
   // We consider a unit to be final if its title contains keywords or if this is the last unit
