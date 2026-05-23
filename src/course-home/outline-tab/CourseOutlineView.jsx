@@ -165,6 +165,20 @@ const CourseOutlineView = () => {
   const quizTimerIntervalRef = useRef(null);
   const [unitMaterialOpenState, setUnitMaterialOpenState] = useState({});
   const [showPrereqModal, setShowPrereqModal] = useState(false);
+  // Per-unit quiz results (loaded from localStorage for persistence across navigation)
+  const [unitQuizResults, setUnitQuizResults] = useState({});
+
+  // Load stored quiz result from localStorage whenever the selected unit changes
+  useEffect(() => {
+    if (!selectedUnitId) return;
+    try {
+      const stored = localStorage.getItem(`quiz_result_${selectedUnitId}`);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setUnitQuizResults((prev) => ({ ...prev, [selectedUnitId]: parsed }));
+      }
+    } catch (e) { /* ignore */ }
+  }, [selectedUnitId]);
 
   // Dev-only: trace when the final confirm modal is requested to help debug accidental opens.
   useEffect(() => {
@@ -1131,8 +1145,10 @@ const CourseOutlineView = () => {
                       ))}
 
                       {/* Quiz card for non-final units only */}
-                      {!isFinalUnit && (
-                        <div style={{ background: '#f8fafd', border: '1.5px solid #b2b2b2', borderRadius: 8, padding: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      {!isFinalUnit && (() => {
+                        const prevQuizResult = unitQuizResults[selectedUnitId] || null;
+                        return (
+                        <div style={{ background: '#f8fafd', border: `1.5px solid ${prevQuizResult ? (prevQuizResult.passed ? '#c3e6cb' : '#f5c6cb') : '#b2b2b2'}`, borderRadius: 8, padding: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                             {(() => {
                               const UnitIcon = getContentIcon('questions');
@@ -1140,6 +1156,11 @@ const CourseOutlineView = () => {
                             })()}
                             <div>
                               <div style={{ fontWeight: 600 }}>{typeLabel.questions}</div>
+                              {prevQuizResult && (
+                                <div style={{ fontSize: 13, marginTop: 3, color: prevQuizResult.passed ? '#155724' : '#721c24', fontWeight: 500 }}>
+                                  {prevQuizResult.passed ? '✓ Đạt' : '✗ Chưa đạt'} — {Math.round(prevQuizResult.percentage || 0)}% ({prevQuizResult.points_earned || 0}/{prevQuizResult.points_possible || 0} câu đúng)
+                                </div>
+                              )}
                             </div>
                           </div>
                           <button
@@ -1185,10 +1206,11 @@ const CourseOutlineView = () => {
                               }
                             }}
                           >
-                            Làm bài trắc nghiệm
+                            {prevQuizResult ? 'Làm lại' : 'Làm bài trắc nghiệm'}
                           </button>
                         </div>
-                      )}
+                        );
+                      })()}
                     </>
                   )}
 

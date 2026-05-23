@@ -638,6 +638,10 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
       
       console.log('📊 Combined quiz submission result:', processedResult);
       setResult(processedResult);
+      // Persist result for this unit so it survives navigation
+      if (unitId) {
+        try { localStorage.setItem('quiz_result_' + unitId, JSON.stringify(processedResult)); } catch (e) { /* ignore */ }
+      }
       
       // Refresh attempt status after successful submission for final evaluation quizzes
       if (isFinalEvaluationQuiz) {
