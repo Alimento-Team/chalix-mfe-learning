@@ -286,6 +286,47 @@ const FacialExpressionRecorder = ({
     }
   }, []);
 
+  const uploadRecordedChunks = useCallback(async (isFinal = false, duration = null) => {
+    // Snapshot and immediately clear the ref so new chunks from an ongoing
+    // recording are not lost while the async upload is in flight.
+    const chunks = recordingChunksRef.current;
+    if (chunks.length === 0) {
+      return;
+    }
+    recordingChunksRef.current = [];
+
+    try {
+      const blob = new Blob(chunks, { type: 'video/webm' });
+      const formData = new FormData();
+
+      const recordingDurationSeconds = duration
+        ? Math.floor(duration / 1000)
+        : Math.floor((Date.now() - (recordingStartTimeRef.current || Date.now())) / 1000);
+
+      formData.append('video', blob, `facial_${Date.now()}.webm`);
+      formData.append('course_id', courseId);
+      formData.append('unit_id', unitId);
+      formData.append('is_final', isFinal.toString());
+      formData.append('timestamp', new Date().toISOString());
+      formData.append('duration_seconds', recordingDurationSeconds.toString());
+
+      const client = getAuthenticatedHttpClient();
+      const apiUrl = `${getConfig().LMS_BASE_URL}/api/facial-expression/upload/`;
+
+      await client.post(apiUrl, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      console.log('Video chunk uploaded successfully. Duration:', recordingDurationSeconds, 'seconds');
+    } catch (error) {
+      console.error('Error uploading facial expression video:', error);
+      // Restore chunks on failure so the next interval can retry them
+      recordingChunksRef.current = [...chunks, ...recordingChunksRef.current];
+    }
+  }, [courseId, unitId]);
+
   const startRecording = useCallback(() => {
     const stream = streamRef.current;
     if (stream) {
@@ -390,47 +431,6 @@ const FacialExpressionRecorder = ({
       }, 1000);
     }
   }, [isRecording, recordingDuration, saveRecordingState, clearRecordingState, uploadRecordedChunks]);
-
-  const uploadRecordedChunks = useCallback(async (isFinal = false, duration = null) => {
-    // Snapshot and immediately clear the ref so new chunks from an ongoing
-    // recording are not lost while the async upload is in flight.
-    const chunks = recordingChunksRef.current;
-    if (chunks.length === 0) {
-      return;
-    }
-    recordingChunksRef.current = [];
-
-    try {
-      const blob = new Blob(chunks, { type: 'video/webm' });
-      const formData = new FormData();
-
-      const recordingDurationSeconds = duration
-        ? Math.floor(duration / 1000)
-        : Math.floor((Date.now() - (recordingStartTimeRef.current || Date.now())) / 1000);
-
-      formData.append('video', blob, `facial_${Date.now()}.webm`);
-      formData.append('course_id', courseId);
-      formData.append('unit_id', unitId);
-      formData.append('is_final', isFinal.toString());
-      formData.append('timestamp', new Date().toISOString());
-      formData.append('duration_seconds', recordingDurationSeconds.toString());
-
-      const client = getAuthenticatedHttpClient();
-      const apiUrl = `${getConfig().LMS_BASE_URL}/api/facial-expression/upload/`;
-
-      await client.post(apiUrl, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      console.log('Video chunk uploaded successfully. Duration:', recordingDurationSeconds, 'seconds');
-    } catch (error) {
-      console.error('Error uploading facial expression video:', error);
-      // Restore chunks on failure so the next interval can retry them
-      recordingChunksRef.current = [...chunks, ...recordingChunksRef.current];
-    }
-  }, [courseId, unitId]);
 
   if (!isActive) {
     return null;
