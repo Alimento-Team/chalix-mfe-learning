@@ -168,16 +168,23 @@ const CourseOutlineView = () => {
   // Per-unit quiz results (loaded from localStorage for persistence across navigation)
   const [unitQuizResults, setUnitQuizResults] = useState({});
 
-  // Load stored quiz result from localStorage whenever the selected unit changes
+  // Load stored quiz result from backend whenever the selected unit changes
   useEffect(() => {
     if (!selectedUnitId) return;
-    try {
-      const stored = localStorage.getItem(`quiz_result_${selectedUnitId}`);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setUnitQuizResults((prev) => ({ ...prev, [selectedUnitId]: parsed }));
-      }
-    } catch (e) { /* ignore */ }
+    let cancelled = false;
+    const fetchResult = async () => {
+      try {
+        const client = getAuthenticatedHttpClient();
+        const encodedUnit = encodeURIComponent(selectedUnitId);
+        const url = `${getConfig().LMS_BASE_URL}/api/course_home/v1/content/units/${encodedUnit}/quizzes/result/`;
+        const resp = await client.get(url, { headers: { 'USE-JWT-COOKIE': 'true' } });
+        if (!cancelled && resp.data?.has_result) {
+          setUnitQuizResults((prev) => ({ ...prev, [selectedUnitId]: resp.data }));
+        }
+      } catch (e) { /* ignore – result simply won't show if endpoint unavailable */ }
+    };
+    fetchResult();
+    return () => { cancelled = true; };
   }, [selectedUnitId]);
 
   // Dev-only: trace when the final confirm modal is requested to help debug accidental opens.
@@ -1827,6 +1834,10 @@ const CourseOutlineView = () => {
                               onRegister={(id, api) => {
                                 if (id && api) quizRegistry.current[id] = api;
                                 else if (id && !api) delete quizRegistry.current[id];
+                              }}
+                              onResult={(res) => {
+                                // Update the quiz card to reflect the new result immediately
+                                setUnitQuizResults((prev) => ({ ...prev, [selectedUnitId]: res }));
                               }}
                               disabled={finalSubmitted}
                               showHeader={true}

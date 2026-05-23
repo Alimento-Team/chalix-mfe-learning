@@ -4,19 +4,11 @@ import { getConfig } from '@edx/frontend-platform';
 import { getAuthenticatedHttpClient } from '@edx/frontend-platform/auth';
 // Confirmation and final submit are handled by the parent component.
 
-const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, requireConfirm = false, forceOpen = false, disabled = false, showHeader = true }) => {
+const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, onResult = null, requireConfirm = false, forceOpen = false, disabled = false, showHeader = true }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [quiz, setQuiz] = useState(null);
   
-  // Debug log to check if courseId is being passed
-  console.log('🔍 QuizRenderer initialized with:', {
-    hasCourseId: !!selectedContent?.courseId,
-    courseId: selectedContent?.courseId,
-    title: selectedContent?.title,
-    forceOpen,
-    showHeader
-  });
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
   const [opened, setOpened] = useState(false);
@@ -36,7 +28,6 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
       const statusUrl = `${getConfig().LMS_BASE_URL}/api/course_home/v1/final_evaluation/${selectedContent.courseId}/attempt-status`;
       const resp = await client.get(statusUrl, { headers: { 'USE-JWT-COOKIE': 'true' } });
       
-      console.log('📊 Attempt status:', resp.data);
       return resp.data;
     } catch (error) {
       console.error('❌ Error getting attempt status:', error);
@@ -53,7 +44,6 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
       const startUrl = `${getConfig().LMS_BASE_URL}/api/course_home/v1/final_evaluation/${selectedContent.courseId}/attempt-status`;
       const resp = await client.post(startUrl, {}, { headers: { 'USE-JWT-COOKIE': 'true' } });
       
-      console.log('✅ New attempt started:', resp.data);
       return resp.data;
     } catch (error) {
       console.error('❌ Error starting new attempt:', error);
@@ -84,7 +74,6 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
       getAttemptStatus().then(status => {
         if (status) {
           setAttemptStatus(status);
-          console.log('📊 Loaded attempt status:', status);
         }
       });
     }
@@ -95,18 +84,16 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
     let cancelled = false;
     const loadAllQuizzes = async () => {
       if (!opened || !unitId) {
-        console.log('QuizRenderer: Skipping load - opened:', opened, 'unitId:', unitId);
+        // console.log('QuizRenderer: Skipping load - opened:', opened, 'unitId:', unitId);
         return;
       }
       
       // Skip if quiz is already loaded to prevent re-fetching
       if (quiz && !loading) {
-        console.log('QuizRenderer: Quiz already loaded, skipping fetch');
+        // console.log('QuizRenderer: Quiz already loaded, skipping fetch');
         return;
       }
       
-      console.log('QuizRenderer: Loading ALL quizzes for unit:', unitId);
-      console.log('QuizRenderer: selectedContent:', selectedContent);
       setLoading(true);
       setError(null);
       setQuiz(null);
@@ -119,40 +106,35 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
         let courseConfig = selectedContent?.finalEvaluationConfig || null;
         if (!courseConfig && selectedContent?.courseId) {
           try {
-            console.log('🔧 Fetching course config for course:', selectedContent.courseId);
             const configRes = await client.get(
               `${getConfig().LMS_BASE_URL}/api/course_home/v1/final_evaluation/${selectedContent.courseId}/config`,
               { headers: { 'USE-JWT-COOKIE': 'true' } }
             );
             courseConfig = configRes.data;
-            console.log('✅ Course config loaded via API:', courseConfig);
           } catch (configError) {
-            console.warn('⚠️ Could not load course config:', configError);
+            // console.warn('⚠️ Could not load course config:', configError);
           }
         } else if (courseConfig) {
-          console.log('✅ Using pre-loaded course config:', courseConfig);
+          // console.log('✅ Using pre-loaded course config:', courseConfig);
         }
 
         // If we still don't have time limit info, try the quiz data endpoint
         if ((!courseConfig || (!courseConfig.time_limit && !courseConfig.quiz_time_limit)) && selectedContent?.courseId) {
           try {
-            console.log('🔧 Trying quiz data endpoint for time limit info');
             const quizRes = await client.get(
               `${getConfig().LMS_BASE_URL}/api/course_home/v1/final_evaluation/${selectedContent.courseId}/quiz`,
               { headers: { 'USE-JWT-COOKIE': 'true' } }
             );
             if (quizRes.data && quizRes.data.time_limit) {
-              console.log('✅ Found time limit in quiz data:', quizRes.data.time_limit);
               courseConfig = { ...courseConfig, ...quizRes.data };
             }
           } catch (quizError) {
-            console.warn('⚠️ Could not load quiz data for time limit:', quizError);
+            // console.warn('⚠️ Could not load quiz data for time limit:', quizError);
           }
         }
         
         // Check if quiz list is already provided from parent
         if (selectedContent?.quizList && selectedContent.quizList.length > 0) {
-          console.log('✅ Using provided quiz list:', selectedContent.quizList);
           
           // Load all quiz details from the provided list
           const allQuizzes = [];
@@ -162,10 +144,8 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
             try {
               const encodedUnit = encodeURIComponent(unitId);
               const quizUrl = `${getConfig().LMS_BASE_URL}/api/course_home/v1/content/units/${encodedUnit}/quizzes/${encodeURIComponent(quizItem.id)}/`;
-              console.log('QuizRenderer: Loading quiz details:', quizUrl);
               const quizResp = await client.get(quizUrl, { headers: { 'USE-JWT-COOKIE': 'true' } });
               
-              console.log('🔍 Individual quiz response:', quizResp.data);
               
               if (quizResp.data && quizResp.data.questions) {
                 // Add quiz metadata to each question for tracking
@@ -191,8 +171,7 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
           if (!cancelled) {
             if (totalQuestions.length > 0) {
               // Create a combined quiz object with all questions and course config
-              console.log('🔍 Debug courseConfig:', courseConfig);
-              
+             
               // Only set time limit, passing score, and attempts for final evaluation quizzes
               const isFinalEvaluationQuiz = selectedContent?.courseId && selectedContent?.quizList;
               
@@ -238,27 +217,17 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
               };
               
               setQuiz(combinedQuiz);
-              console.log('QuizRenderer: Loaded combined quiz with', totalQuestions.length, 'questions from', allQuizzes.length, 'quizzes');
-              console.log('🎯 Quiz config:', {
-                timeLimit: combinedQuiz.time_limit,
-                passingScore: combinedQuiz.passing_score,
-                maxAttempts: combinedQuiz.max_attempts,
-                attemptsRemaining: combinedQuiz.attempts_remaining
-              });
             } else {
               setError('Không có câu hỏi nào trong các bài kiểm tra');
             }
           }
         } else {
           // Fallback: try to discover quizzes from unit vertical data
-          console.log('🔄 No quiz list provided, discovering from unit data');
           const encodedUnit = encodeURIComponent(unitId);
           const verticalUrl = `${getConfig().LMS_BASE_URL}/api/course_home/v1/content/container_handler/${encodedUnit}?debug=1`;
-          console.log('QuizRenderer: Fetching unit data from:', verticalUrl);
           const verticalResp = await client.get(verticalUrl, { headers: { 'USE-JWT-COOKIE': 'true' } });
           
           const children = verticalResp.data?.xblock_info?.children || [];
-          console.log('QuizRenderer: Unit children:', children);
           
           // Find all quiz/problem blocks
           const quizBlocks = children.filter(
@@ -270,7 +239,6 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
                    (c.display_name && c.display_name.toLowerCase().includes('kiểm tra'))
           );
           
-          console.log('QuizRenderer: Found quiz blocks:', quizBlocks);
           
           if (quizBlocks.length === 0) {
             setError('Không tìm thấy bài kiểm tra nào trong bài học này');
@@ -286,7 +254,6 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
       } finally {
         if (!cancelled) {
           setLoading(false);
-          console.log('QuizRenderer: Loading complete');
         }
       }
     };
@@ -305,7 +272,6 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
       const totalSeconds = quiz.time_limit * 60; // convert minutes to seconds
       setTimeRemaining(totalSeconds);
       setTimerStarted(true);
-      console.log('⏰ Timer started:', quiz.time_limit, 'minutes =', totalSeconds, 'seconds');
     }
 
     if (timeRemaining === null) return;
@@ -314,10 +280,8 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
       setTimeRemaining(prev => {
         if (prev <= 1) {
           clearInterval(timer);
-          console.log('⏰ Time expired!');
           // Auto-submit when time runs out
           if (!result && !disabled && doSubmitRef.current) {
-            console.log('⏰ Auto-submitting quiz due to timeout');
             doSubmitRef.current();
           }
           return 0;
@@ -355,7 +319,6 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
       if (isFinalEvaluationQuiz) {
         try {
           const attemptData = await startNewAttempt();
-          console.log('📝 Started new attempt before submission:', attemptData);
         } catch (attemptError) {
           console.error('❌ Failed to start new attempt:', attemptError);
           // If we can't start a new attempt, show the error and stop
@@ -388,14 +351,7 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
           answersByQuiz[quizId][qid] = answers[qid];
         }
       });
-      
-      console.log('📤 Submitting answers for multiple quizzes:', answersByQuiz);
-      
       if (isFinalEvaluationQuiz) {
-        // For final evaluation quizzes, submit all answers at once to the final evaluation endpoint
-        console.log('📤 Submitting final evaluation quiz with all answers:', answersByQuiz);
-        console.log('📤 Course ID:', selectedContent.courseId);
-        console.log('📤 Quiz config:', quiz);
         
         // The backend expects answers in format: {question_id: [choice_ids]}
         // But our answersByQuiz is grouped by quiz, we need to flatten it
@@ -414,19 +370,16 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
         });
         
         const payload = { answers: flattenedAnswers };
-        console.log('📤 Original answersByQuiz:', answersByQuiz);
-        console.log('📤 Flattened answers for backend:', flattenedAnswers);
-        console.log('📤 Final payload:', payload);
-        
+
         try {
           
           const postUrl = `${getConfig().LMS_BASE_URL}/api/course_home/v1/final_evaluation/${selectedContent.courseId}/quiz/submit`;
-          console.log('📤 POST URL:', postUrl);
+
           
           const resp = await client.post(postUrl, payload, { headers: { 'USE-JWT-COOKIE': 'true' } });
           const finalResult = resp.data || {};
           
-          console.log('✅ Final evaluation quiz submitted successfully:', finalResult);
+
           
           // Use the result from the final evaluation endpoint
           const processedResult = {
@@ -462,7 +415,6 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
           }
           
           // If final evaluation endpoint fails, try individual submissions as fallback
-          console.log('🔄 Final evaluation endpoint failed, trying individual submissions as fallback...');
           
           const individualResults = [];
           let totalPointsEarned = 0;
@@ -473,7 +425,6 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
               const individualPayload = { answers: quizAnswers };
               const individualUrl = `${getConfig().LMS_BASE_URL}/api/course_home/v1/content/quizzes/${encodeURIComponent(blockId)}/submit/`;
               
-              console.log(`📤 Fallback: Submitting individual quiz ${blockId}:`, individualPayload);
               const individualResp = await client.post(individualUrl, individualPayload, { 
                 headers: { 'USE-JWT-COOKIE': 'true' } 
               });
@@ -491,7 +442,6 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
               totalPointsPossible += scoreArr[1];
               
             } catch (indivError) {
-              console.error(`❌ Error submitting individual quiz ${blockId}:`, indivError);
               individualResults.push({
                 quiz_id: blockId,
                 success: false,
@@ -521,7 +471,7 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
             original_error: finalError.message
           };
           
-          console.log('📊 Fallback result processed:', fallbackResult);
+
           setResult(fallbackResult);
           return fallbackResult;
         }
@@ -536,7 +486,6 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
             const payload = { answers: quizAnswers };
             const postUrl = `${getConfig().LMS_BASE_URL}/api/course_home/v1/content/quizzes/${encodeURIComponent(blockId)}/submit/`;
             
-            console.log(`📤 Submitting individual quiz ${blockId}:`, payload);
             const resp = await client.post(postUrl, payload, { headers: { 'USE-JWT-COOKIE': 'true' } });
             
             const result = resp.data || {};
@@ -581,7 +530,6 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
           max_attempts: quiz.max_attempts || 3
         };
         
-        console.log('📊 Combined quiz submission result:', processedResult);
         setResult(processedResult);
         return processedResult;
       }
@@ -593,7 +541,6 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
           const postUrl = `${getConfig().LMS_BASE_URL}/api/course_home/v1/content/units/${encodedUnit}/quizzes/${encodeURIComponent(quizId)}/submit/`;
           const payload = { answers: quizAnswers };
             
-          console.log(`📤 Submitting quiz ${quizId}:`, payload);
           const resp = await client.post(postUrl, payload, { headers: { 'USE-JWT-COOKIE': 'true' } });
           const quizResult = resp.data || {};
           
@@ -636,19 +583,14 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
         max_attempts: quiz.max_attempts || 3
       };
       
-      console.log('📊 Combined quiz submission result:', processedResult);
       setResult(processedResult);
-      // Persist result for this unit so it survives navigation
-      if (unitId) {
-        try { localStorage.setItem('quiz_result_' + unitId, JSON.stringify(processedResult)); } catch (e) { /* ignore */ }
-      }
+      if (typeof onResult === 'function') onResult(processedResult);
       
       // Refresh attempt status after successful submission for final evaluation quizzes
       if (isFinalEvaluationQuiz) {
         getAttemptStatus().then(status => {
           if (status) {
             setAttemptStatus(status);
-            console.log('🔄 Refreshed attempt status after submission:', status);
           }
         });
       }
