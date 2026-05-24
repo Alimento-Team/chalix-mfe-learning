@@ -168,25 +168,6 @@ const CourseOutlineView = () => {
   // Per-unit quiz results (loaded from localStorage for persistence across navigation)
   const [unitQuizResults, setUnitQuizResults] = useState({});
 
-  // Load stored quiz result from backend whenever the selected unit changes
-  useEffect(() => {
-    if (!selectedUnitId) return;
-    let cancelled = false;
-    const fetchResult = async () => {
-      try {
-        const client = getAuthenticatedHttpClient();
-        const encodedUnit = encodeURIComponent(selectedUnitId);
-        const url = `${getConfig().LMS_BASE_URL}/api/course_home/v1/content/units/${encodedUnit}/quizzes/result/`;
-        const resp = await client.get(url, { headers: { 'USE-JWT-COOKIE': 'true' } });
-        if (!cancelled && resp.data?.has_result) {
-          setUnitQuizResults((prev) => ({ ...prev, [selectedUnitId]: resp.data }));
-        }
-      } catch (e) { /* ignore – result simply won't show if endpoint unavailable */ }
-    };
-    fetchResult();
-    return () => { cancelled = true; };
-  }, [selectedUnitId]);
-
   // Dev-only: trace when the final confirm modal is requested to help debug accidental opens.
   useEffect(() => {
     if (showFinalConfirm) {
@@ -246,6 +227,26 @@ const CourseOutlineView = () => {
 
   const selectedUnit = useMemo(() => allUnits[selectedUnitIndex] || null, [allUnits, selectedUnitIndex]);
   const selectedUnitId = selectedUnit?.id;
+
+  // Load stored quiz result from backend whenever the selected unit changes.
+  // Must be declared AFTER selectedUnitId to avoid the temporal dead zone.
+  useEffect(() => {
+    if (!selectedUnitId) return;
+    let cancelled = false;
+    const fetchResult = async () => {
+      try {
+        const client = getAuthenticatedHttpClient();
+        const encodedUnit = encodeURIComponent(selectedUnitId);
+        const url = `${getConfig().LMS_BASE_URL}/api/course_home/v1/content/units/${encodedUnit}/quizzes/result/`;
+        const resp = await client.get(url, { headers: { 'USE-JWT-COOKIE': 'true' } });
+        if (!cancelled && resp.data?.has_result) {
+          setUnitQuizResults((prev) => ({ ...prev, [selectedUnitId]: resp.data }));
+        }
+      } catch (e) { /* ignore – result simply won’t show if endpoint unavailable */ }
+    };
+    fetchResult();
+    return () => { cancelled = true; };
+  }, [selectedUnitId]);
 
   const handleSelectUnitIndex = useCallback((index) => {
     if (index >= 0) {
