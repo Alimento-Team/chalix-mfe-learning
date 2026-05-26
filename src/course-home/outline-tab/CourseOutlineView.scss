@@ -856,8 +856,21 @@
 
 /* ── Media fullscreen overlay ── */
 .media-viewer-overlay {
-    /* Desktop: plain flow wrapper (invisible container when empty) */
     position: relative;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 1400;
+
+    &.is-open {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        background: rgba(0, 0, 0, 0.82);
+        overflow: auto;
+    }
 
     &__close {
         display: none;
@@ -866,19 +879,22 @@
 
     &__player {
         max-width: 980px;
-        margin: 24px auto 0;
+        margin: 0 auto;
         width: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+
+        &--slide {
+            max-width: 1100px;
+        }
     }
 }
 
 @media (max-width: 768px) {
     .media-viewer-overlay.is-open {
-        position: fixed;
-        inset: 0;
-        z-index: 1400;
         background: #000;
-        display: flex;
-        flex-direction: column;
+        padding: 16px 12px;
         overflow: hidden;
     }
 
@@ -907,7 +923,6 @@
         max-width: 100%;
         margin: 0;
         padding-top: 56px;
-        /* clear the close button */
         display: flex;
         flex-direction: column;
         overflow: auto;

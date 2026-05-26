@@ -8,7 +8,7 @@ import { Spinner, Button, Alert } from '@openedx/paragon';
  *   can be rendered inline without embedding an insecure HTTP resource.
  * - Falls back to a download link when inline viewing isn't possible.
  */
-const FileViewer = ({ fileUrl, fileName }) => {
+const FileViewer = ({ fileUrl, fileName, centered }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [blobUrl, setBlobUrl] = useState(null);
@@ -61,7 +61,7 @@ const FileViewer = ({ fileUrl, fileName }) => {
 
   if (loading) {
     return (
-      <div style={{ height: 420, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ height: 420, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
         <Spinner animation="border" size="sm" />
         <span style={{ marginLeft: 12 }}>Đang tải file...</span>
       </div>
@@ -70,7 +70,7 @@ const FileViewer = ({ fileUrl, fileName }) => {
 
   if (error) {
     return (
-      <Alert variant="warning">
+      <Alert variant="warning" style={centered ? { maxWidth: 980, margin: '0 auto' } : undefined}>
         <Alert.Heading>Không thể tải file</Alert.Heading>
         <p>{error}</p>
         <div style={{ marginTop: 8 }}>
@@ -86,7 +86,7 @@ const FileViewer = ({ fileUrl, fileName }) => {
     // If it's a PDF, use an iframe which most browsers can render inline from a blob URL.
     if (isPdf) {
       return (
-        <div style={{ maxWidth: 980, margin: '24px auto 0', width: '100%' }}>
+        <div style={{ maxWidth: centered ? 1100 : 980, margin: centered ? '0 auto' : '24px auto 0', width: '100%' }}>
           <iframe
             title={fileName || 'Document'}
             src={blobUrl}
@@ -99,7 +99,7 @@ const FileViewer = ({ fileUrl, fileName }) => {
     // For other types, try an <object> tag which may allow inline rendering for some types,
     // otherwise the browser will show a download prompt / fallback content.
     return (
-      <div style={{ maxWidth: 980, margin: '24px auto 0', width: '100%' }}>
+      <div style={{ maxWidth: centered ? 1100 : 980, margin: centered ? '0 auto' : '24px auto 0', width: '100%' }}>
         <object data={blobUrl} type="application/octet-stream" style={{ width: '100%', minHeight: 420 }}>
           <div style={{ padding: 16 }}>
             <div>Không thể hiển thị tệp trực tiếp.</div>
@@ -116,7 +116,7 @@ const FileViewer = ({ fileUrl, fileName }) => {
 
   // If we don't have a blob URL (e.g., empty fileUrl) fall back to a simple download link
   return (
-    <div style={{ padding: 16 }}>
+    <div style={{ padding: 16, maxWidth: centered ? 980 : undefined, margin: centered ? '0 auto' : undefined }}>
       <div style={{ marginBottom: 8 }}>Tệp không khả dụng để xem trước.</div>
       <Button variant="primary" href={fileUrl} target="_blank" download>
         📥 Tải xuống file
@@ -128,10 +128,12 @@ const FileViewer = ({ fileUrl, fileName }) => {
 FileViewer.propTypes = {
   fileUrl: PropTypes.string.isRequired,
   fileName: PropTypes.string,
+  centered: PropTypes.bool,
 };
 
 FileViewer.defaultProps = {
   fileName: '',
+  centered: false,
 };
 
 export default FileViewer;

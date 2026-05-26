@@ -1747,7 +1747,10 @@ const CourseOutlineView = () => {
                   )}
                 </div>
                 {/* Show selected content (video, slide, quiz) if chosen */}
-                <div className={classNames('media-viewer-overlay', { 'is-open': !!(selectedContent && (selectedContent.type === 'video' || selectedContent.type === 'slide')) })}>
+                <div className={classNames('media-viewer-overlay', {
+                  'is-open': !!(selectedContent && (selectedContent.type === 'video' || selectedContent.type === 'slide')),
+                  'is-slide-view': selectedContent?.type === 'slide',
+                })}>
                   <button
                     type="button"
                     className="media-viewer-overlay__close"
@@ -1809,9 +1812,9 @@ const CourseOutlineView = () => {
                     })()
                   )}
                   {selectedContent && selectedContent.type === 'slide' && selectedContent.fileUrl && (
-                    <div className="media-viewer-overlay__player">
+                    <div className="media-viewer-overlay__player media-viewer-overlay__player--slide">
                       <React.Suspense fallback={<div style={{ height: 420, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span>Đang chuẩn bị trình xem...</span></div>}>
-                        <FileViewer fileUrl={selectedContent.fileUrl} fileName={selectedContent.title || ''} />
+                        <FileViewer fileUrl={selectedContent.fileUrl} fileName={selectedContent.title || ''} centered />
                       </React.Suspense>
                     </div>
                   )}
