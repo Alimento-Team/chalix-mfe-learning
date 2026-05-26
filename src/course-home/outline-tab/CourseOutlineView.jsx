@@ -1577,6 +1577,7 @@ const CourseOutlineView = () => {
                                   <div key={q.id || idx} style={{ background: '#fff', padding: 14, border: '1px solid #ddd', borderRadius: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                                     <QuizRenderer
                                       selectedContent={{ ...q, type: 'questions' }}
+                                      courseId={courseId}
                                       unitId={selectedUnitId}
                                       forceOpen={true}
                                       onRegister={(id, api) => {
@@ -1830,6 +1831,7 @@ const CourseOutlineView = () => {
                                 quizList: selectedContent.quizList,
                                 title: selectedContent.title || 'Bài kiểm tra'
                               }}
+                              courseId={courseId}
                               unitId={selectedUnitId}
                               forceOpen={true}
                               onRegister={(id, api) => {

@@ -2,9 +2,10 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { getConfig } from '@edx/frontend-platform';
 import { getAuthenticatedHttpClient } from '@edx/frontend-platform/auth';
+import { postMaterialOpenEvent } from '../../../courseware/data/api';
 // Confirmation and final submit are handled by the parent component.
 
-const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, onResult = null, requireConfirm = false, forceOpen = false, disabled = false, showHeader = true }) => {
+const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRegister = null, onResult = null, requireConfirm = false, forceOpen = false, disabled = false, showHeader = true }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [quiz, setQuiz] = useState(null);
@@ -18,6 +19,11 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
   const [attemptStatus, setAttemptStatus] = useState(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const doSubmitRef = useRef(null);
+  const quizOpenTrackedRef = useRef(false);
+
+  useEffect(() => {
+    quizOpenTrackedRef.current = false;
+  }, [courseId, selectedContent?.courseId, selectedContent?.id, unitId]);
 
   // Function to get current attempt status
   const getAttemptStatus = useCallback(async () => {
@@ -614,6 +620,18 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
   useEffect(() => {
     if (forceOpen) setOpened(true);
   }, [forceOpen]);
+
+  useEffect(() => {
+    const effectiveCourseId = courseId || selectedContent?.courseId;
+    if (!opened || disabled || quizOpenTrackedRef.current || !effectiveCourseId || !unitId) {
+      return;
+    }
+
+    quizOpenTrackedRef.current = true;
+    postMaterialOpenEvent(effectiveCourseId, 'quiz').catch((trackingError) => {
+      console.warn('QuizRenderer: Failed to track quiz open event', trackingError);
+    });
+  }, [courseId, disabled, opened, selectedContent?.courseId, unitId]);
 
   const handleChange = (questionId, choiceId, multiple) => {
     setAnswers(prev => {
@@ -1212,6 +1230,7 @@ const QuizRenderer = ({ selectedContent = null, unitId = '', onRegister = null, 
 
 QuizRenderer.propTypes = {
   selectedContent: PropTypes.object,
+  courseId: PropTypes.string,
   unitId: PropTypes.string,
   onRegister: PropTypes.func,
 };
