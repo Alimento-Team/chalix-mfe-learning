@@ -395,6 +395,7 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
             passing_score: finalResult.passing_score || quiz.passing_score || 70,
             passed: finalResult.passed || false,
             individual_results: finalResult.individual_results || [],
+            answer_details: finalResult.answer_details || finalResult.answers || [],
             total_quizzes: Object.keys(answersByQuiz).length,
             successful_submissions: Object.keys(answersByQuiz).length,
             attempts_remaining: finalResult.attempts_remaining || 0,
@@ -528,6 +529,7 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
           passing_score: passingScore,
           passed: overallPercentage >= passingScore,
           individual_results: individualResults,
+          answer_details: individualResults.flatMap((item) => item.answer_details || item.answers || (item.result?.answer_details || item.result?.answers || [])),
           total_quizzes: Object.keys(answersByQuiz).length,
           successful_submissions: individualResults.filter(r => r.success).length,
           // Use quiz config values
@@ -581,6 +583,7 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
         passing_score: passingScore,
         passed: overallPercentage >= passingScore,
         individual_results: individualResults,
+        answer_details: individualResults.flatMap((item) => item.answer_details || item.answers || (item.result?.answer_details || item.result?.answers || [])),
         total_quizzes: Object.keys(answersByQuiz).length,
         successful_submissions: individualResults.filter(r => r.success).length,
         // Use quiz config values
@@ -1119,7 +1122,7 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
               const userAnswer = answers[qid] || [];
               const userAnswerArray = Array.isArray(userAnswer) ? userAnswer : [userAnswer];
 
-              const responseAnswerDetails = result?.answer_details || result?.answers || [];
+                const responseAnswerDetails = result?.answer_details || result?.answers || [];
               const responseDetail = Array.isArray(responseAnswerDetails)
                 ? responseAnswerDetails.find(detail => String(detail.question_id) === qid)
                 : null;
@@ -1132,6 +1135,7 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
 
               const correctTextsFromResponse = (responseDetail?.correct_choices || []).map(text => String(text || '').trim());
               const selectedTextsFromResponse = (responseDetail?.selected_choices || []).map(text => String(text || '').trim());
+                const hasResponseDetails = Boolean(responseDetail);
               
               // Check if user's answer is correct
               const isCorrect = typeof responseDetail?.is_correct === 'boolean'
@@ -1187,6 +1191,11 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
                         borderColor = '#ef4444';
                         icon = '✗ ';
                       }
+
+                      if (!isSelectedChoice && !isCorrectChoice && hasResponseDetails) {
+                        bgColor = '#f8fafc';
+                        borderColor = '#e5e7eb';
+                      }
                       
                       return (
                         <div
@@ -1200,11 +1209,11 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
                             fontSize: 14
                           }}
                         >
-                          <span style={{ fontWeight: isCorrectChoice || isSelectedChoice ? 600 : 400 }}>
+                            <span style={{ fontWeight: isCorrectChoice || isSelectedChoice ? 600 : 400, textDecoration: 'none' }}>
                             {icon}{c.text || c.choice_text || c.choice || ''}
                           </span>
                           {isSelectedChoice && (
-                            <span style={{ marginLeft: 8, fontSize: 12, color: isCorrectChoice ? '#166534' : '#666' }}>
+                              <span style={{ marginLeft: 8, fontSize: 12, color: isCorrectChoice ? '#166534' : '#991b1b' }}>
                               (Câu trả lời của bạn)
                             </span>
                           )}
