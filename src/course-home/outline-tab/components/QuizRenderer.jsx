@@ -19,11 +19,7 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
   const [attemptStatus, setAttemptStatus] = useState(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const doSubmitRef = useRef(null);
-  const quizOpenTrackedRef = useRef(false);
-
-  useEffect(() => {
-    quizOpenTrackedRef.current = false;
-  }, [courseId, selectedContent?.courseId, selectedContent?.id, unitId]);
+  const wasOpenedRef = useRef(false);
 
   // Function to get current attempt status
   const getAttemptStatus = useCallback(async () => {
@@ -491,7 +487,8 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
         for (const [blockId, quizAnswers] of Object.entries(answersByQuiz)) {
           try {
             const payload = { answers: quizAnswers };
-            const postUrl = `${getConfig().LMS_BASE_URL}/api/course_home/v1/content/quizzes/${encodeURIComponent(blockId)}/submit/`;
+            const encodedUnit = encodeURIComponent(unitId || '');
+            const postUrl = `${getConfig().LMS_BASE_URL}/api/course_home/v1/content/units/${encodedUnit}/quizzes/${encodeURIComponent(blockId)}/submit/`;
             
             const resp = await client.post(postUrl, payload, { headers: { 'USE-JWT-COOKIE': 'true' } });
             
@@ -502,10 +499,12 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
               ...result
             });
             
-            // QuizSubmitView returns { status, score: [correct, total], results }
-            const scoreArr = Array.isArray(result.score) ? result.score : [0, 1];
-            totalPointsEarned += scoreArr[0];
-            totalPointsPossible += scoreArr[1];
+            // Topic/regular submit APIs may return either [correct,total] or explicit counters.
+            const scoreArr = Array.isArray(result.score) ? result.score : null;
+            const earned = result.correct_answers ?? result.points_earned ?? scoreArr?.[0] ?? 0;
+            const possible = result.total_questions ?? result.points_possible ?? scoreArr?.[1] ?? 1;
+            totalPointsEarned += earned;
+            totalPointsPossible += possible;
             
           } catch (error) {
             console.error(`❌ Error submitting quiz ${blockId}:`, error);
@@ -626,15 +625,22 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
 
   useEffect(() => {
     const effectiveCourseId = courseId || selectedContent?.courseId;
-    if (!opened || disabled || quizOpenTrackedRef.current || !effectiveCourseId || !unitId) {
+
+    // Reset open-edge tracking when quiz is closed so the next open is counted.
+    if (!opened) {
+      wasOpenedRef.current = false;
       return;
     }
 
-    quizOpenTrackedRef.current = true;
+    if (disabled || wasOpenedRef.current || !effectiveCourseId) {
+      return;
+    }
+
+    wasOpenedRef.current = true;
     postMaterialOpenEvent(effectiveCourseId, 'quiz').catch((trackingError) => {
       console.warn('QuizRenderer: Failed to track quiz open event', trackingError);
     });
-  }, [courseId, disabled, opened, selectedContent?.courseId, unitId]);
+  }, [courseId, disabled, opened, selectedContent?.courseId]);
 
   const handleChange = (questionId, choiceId, multiple) => {
     setAnswers(prev => {
