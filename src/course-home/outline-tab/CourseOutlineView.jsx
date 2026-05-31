@@ -179,7 +179,7 @@ const CourseOutlineView = () => {
   }, [showFinalConfirm]);
 
   const markUnitMaterialOpened = useCallback(async (unitKey, materialType) => {
-    if (!unitKey || !['video', 'slide'].includes(materialType)) {
+    if (!unitKey || !['video', 'slide', 'quiz'].includes(materialType)) {
       return;
     }
 
@@ -196,7 +196,7 @@ const CourseOutlineView = () => {
         `${getConfig().LMS_BASE_URL}/api/learning_analytics/material-open/`,
         {
           course_id: courseId,
-          module_type: materialType === 'video' ? 'video' : 'slides',
+          module_type: materialType === 'video' ? 'video' : (materialType === 'quiz' ? 'quiz' : 'slides'),
         },
       );
     } catch (trackingError) {
@@ -1180,6 +1180,9 @@ const CourseOutlineView = () => {
                                 return;
                               }
 
+                              // Track each quiz open from the explicit user action.
+                              await markUnitMaterialOpened(selectedUnitId, 'quiz');
+
                               await syncUnitLearningReadiness();
                               allowShowFinalConfirmRef.current = false;
                               setShowFinalConfirm(false);
@@ -1237,6 +1240,9 @@ const CourseOutlineView = () => {
                         onClick={async () => {
                           // Prevent multiple clicks
                           if (finalEvaluationLoading) return;
+
+                          // Track each quiz open from the explicit user action.
+                          await markUnitMaterialOpened(selectedUnitId, 'quiz');
 
                           await syncUnitLearningReadiness();
                           

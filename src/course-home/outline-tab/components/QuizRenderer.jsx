@@ -626,6 +626,11 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
   useEffect(() => {
     const effectiveCourseId = courseId || selectedContent?.courseId;
 
+    // Parent flow tracks opens explicitly when forcing quiz UI open.
+    if (forceOpen) {
+      return;
+    }
+
     // Reset open-edge tracking when quiz is closed so the next open is counted.
     if (!opened) {
       wasOpenedRef.current = false;
@@ -640,7 +645,7 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
     postMaterialOpenEvent(effectiveCourseId, 'quiz').catch((trackingError) => {
       console.warn('QuizRenderer: Failed to track quiz open event', trackingError);
     });
-  }, [courseId, disabled, opened, selectedContent?.courseId]);
+  }, [courseId, disabled, forceOpen, opened, selectedContent?.courseId]);
 
   const handleChange = (questionId, choiceId, multiple) => {
     setAnswers(prev => {
