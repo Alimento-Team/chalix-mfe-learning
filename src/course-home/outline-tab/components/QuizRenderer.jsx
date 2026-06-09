@@ -789,7 +789,39 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
           )}
         </div>
       )}
-    
+
+      {result && (
+        <div style={{
+          marginTop: 12,
+          marginBottom: 12,
+          padding: '12px 16px',
+          borderRadius: 10,
+          border: '2px solid',
+          borderColor: result.passed ? '#22c55e' : '#ef4444',
+          background: result.passed ? '#dcfce7' : '#fee2e2',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+        }}>
+          <span style={{
+            fontSize: 14,
+            fontWeight: 700,
+            color: result.passed ? '#166534' : '#991b1b',
+          }}>
+            Kết quả bài trắc nghiệm
+          </span>
+          <span style={{
+            fontSize: 22,
+            fontWeight: 800,
+            color: result.passed ? '#166534' : '#991b1b',
+            lineHeight: 1,
+          }}>
+            {result.points_earned || 0}/{result.points_possible || 0}
+          </span>
+        </div>
+      )}
+
       <div data-quiz-id={unitId} style={{ marginTop: 12, padding: 14, background: highlighted ? '#fff6f6' : '#fff', borderRadius: 8 }}>
         {showHeader && (
         <div style={{ marginBottom: 20 }}>
@@ -1028,10 +1060,6 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
             {result.percentage !== undefined && (
               <span style={{ marginLeft: 8, color: '#666' }}>({Math.round(result.percentage)}%)</span>
             )}
-          </div>
-          
-          <div style={{ marginBottom: 8 }}>
-            <strong>Số phần đã nộp:</strong> {result.successful_submissions || 0} / {result.total_quizzes || 0} phần
           </div>
           
           {/* Only show passing score and attempts for final evaluation quizzes */}
