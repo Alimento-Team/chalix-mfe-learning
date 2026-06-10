@@ -873,8 +873,22 @@
     }
 
     &__close {
-        display: none;
-        /* hidden on desktop */
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        position: fixed;
+        top: 14px;
+        right: 16px;
+        border: none;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.2);
+        color: #fff;
+        font-size: 14px;
+        font-weight: 600;
+        padding: 8px 14px;
+        z-index: 1401;
+        cursor: pointer;
+        line-height: 1;
     }
 
     &__player {
@@ -899,19 +913,20 @@
     }
 
     .media-viewer-overlay__close {
-        display: flex;
+        display: inline-flex;
         align-items: center;
         justify-content: center;
-        position: absolute;
+        position: fixed;
         top: 10px;
         right: 12px;
-        width: 36px;
-        height: 36px;
+        min-height: 36px;
         border: none;
-        border-radius: 50%;
+        border-radius: 999px;
         background: rgba(255, 255, 255, 0.18);
         color: #fff;
-        font-size: 18px;
+        font-size: 13px;
+        font-weight: 600;
+        padding: 8px 12px;
         z-index: 1401;
         cursor: pointer;
         line-height: 1;

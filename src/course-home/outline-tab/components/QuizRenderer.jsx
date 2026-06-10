@@ -303,6 +303,16 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const getCorrectSummary = useCallback((resultData) => {
+    if (!resultData) {
+      return { correct: 0, total: 0 };
+    }
+    const scoreArr = Array.isArray(resultData.score) ? resultData.score : null;
+    const correct = resultData.correct_answers ?? resultData.points_earned ?? scoreArr?.[0] ?? 0;
+    const total = resultData.total_questions ?? resultData.points_possible ?? scoreArr?.[1] ?? 0;
+    return { correct, total };
+  }, []);
+
   const doSubmit = useCallback(async () => {
     if (disabled) {
       // Prevent submission if parent marked quizzes as final-submitted
@@ -578,6 +588,8 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
       const processedResult = {
         points_earned: totalPointsEarned,
         points_possible: totalPointsPossible,
+        correct_answers: totalPointsEarned,
+        total_questions: totalPointsPossible,
         percentage: overallPercentage,
         passing_score: passingScore,
         passed: overallPercentage >= passingScore,
@@ -791,6 +803,9 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
       )}
 
       {result && (
+        (() => {
+          const summary = getCorrectSummary(result);
+          return (
         <div style={{
           marginTop: 12,
           marginBottom: 12,
@@ -817,9 +832,11 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
             color: result.passed ? '#166534' : '#991b1b',
             lineHeight: 1,
           }}>
-            {result.points_earned || 0}/{result.points_possible || 0}
+            {summary.correct}/{summary.total}
           </span>
         </div>
+          );
+        })()
       )}
 
       <div data-quiz-id={unitId} style={{ marginTop: 12, padding: 14, background: highlighted ? '#fff6f6' : '#fff', borderRadius: 8 }}>
@@ -1050,13 +1067,16 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
       )}
       
       {result && (
+        (() => {
+          const summary = getCorrectSummary(result);
+          return (
         <div style={{ marginTop: 16, padding: 16, borderRadius: 8, border: '2px solid', borderColor: result.passed ? '#22c55e' : '#ef4444', background: result.passed ? '#f0fdf4' : '#fef2f2' }}>
           <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 12, color: result.passed ? '#16a34a' : '#dc2626' }}>
             {result.passed ? '✅ ĐẠT' : '❌ CHƯA ĐẠT'}
           </div>
           
           <div style={{ marginBottom: 8 }}>
-            <strong>Điểm số tổng:</strong> {result.points_earned || 0} / {result.points_possible || 0} điểm
+            <strong>Số câu đúng:</strong> {summary.correct}/{summary.total} câu
             {result.percentage !== undefined && (
               <span style={{ marginLeft: 8, color: '#666' }}>({Math.round(result.percentage)}%)</span>
             )}
@@ -1104,6 +1124,8 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
                 marginBottom: 12
               }}
               onClick={() => {
+              );
+            })()
                 // Reset quiz state for retake
                 setResult(null);
                 setAnswers({});

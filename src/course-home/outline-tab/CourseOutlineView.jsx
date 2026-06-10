@@ -414,6 +414,26 @@ const CourseOutlineView = () => {
     return () => window.cancelAnimationFrame(animationFrameId);
   }, [selectedContent]);
 
+  // Allow learners to return to the current course screen with ESC.
+  useEffect(() => {
+    const isMediaOverlayOpen = selectedContent && (selectedContent.type === 'video' || selectedContent.type === 'slide');
+    if (!isMediaOverlayOpen) {
+      return undefined;
+    }
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setSelectedContent(null);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [selectedContent]);
+
   // Fetch course data preferring the LMS aggregate endpoint, with fallbacks
   useEffect(() => {
     const fetchCourseData = async () => {
@@ -1164,11 +1184,16 @@ const CourseOutlineView = () => {
                             })()}
                             <div>
                               <div style={{ fontWeight: 600 }}>{typeLabel.questions}</div>
-                              {prevQuizResult && (
-                                <div style={{ fontSize: 13, marginTop: 3, color: prevQuizResult.passed ? '#155724' : '#721c24', fontWeight: 500 }}>
-                                  {prevQuizResult.passed ? '✓ Đạt' : '✗ Chưa đạt'} — {Math.round(prevQuizResult.percentage || 0)}% ({prevQuizResult.points_earned || 0}/{prevQuizResult.points_possible || 0} câu đúng)
-                                </div>
-                              )}
+                              {prevQuizResult && (() => {
+                                const scoreArr = Array.isArray(prevQuizResult.score) ? prevQuizResult.score : null;
+                                const correctAnswers = prevQuizResult.correct_answers ?? prevQuizResult.points_earned ?? scoreArr?.[0] ?? 0;
+                                const totalQuestions = prevQuizResult.total_questions ?? prevQuizResult.points_possible ?? scoreArr?.[1] ?? 0;
+                                return (
+                                  <div style={{ fontSize: 13, marginTop: 3, color: prevQuizResult.passed ? '#155724' : '#721c24', fontWeight: 500 }}>
+                                    {prevQuizResult.passed ? '✓ Đạt' : '✗ Chưa đạt'} — {Math.round(prevQuizResult.percentage || 0)}% ({correctAnswers}/{totalQuestions} câu đúng)
+                                  </div>
+                                );
+                              })()}
                             </div>
                           </div>
                           <button
@@ -1756,14 +1781,20 @@ const CourseOutlineView = () => {
                 <div className={classNames('media-viewer-overlay', {
                   'is-open': !!(selectedContent && (selectedContent.type === 'video' || selectedContent.type === 'slide')),
                   'is-slide-view': selectedContent?.type === 'slide',
-                })}>
+                })}
+                onClick={(event) => {
+                  if (event.target === event.currentTarget) {
+                    setSelectedContent(null);
+                  }
+                }}>
                   <button
                     type="button"
                     className="media-viewer-overlay__close"
-                    aria-label="Đóng trình xem"
+                    aria-label="Trở về bài học"
                     onClick={() => setSelectedContent(null)}
                   >
-                    ✕
+                    <span aria-hidden="true">←</span>
+                    <span style={{ marginLeft: 6 }}>Trở về bài học</span>
                   </button>
                   {selectedContent && selectedContent.type === 'video' && (
                     (() => {
