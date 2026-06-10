@@ -178,15 +178,27 @@ const CourseOutlineView = () => {
     }
   }, [showFinalConfirm]);
 
+  const normalizeUnitTrackingKey = useCallback((unitKey) => {
+    if (unitKey !== undefined && unitKey !== null && String(unitKey).trim() !== '') {
+      return String(unitKey);
+    }
+    if (selectedUnit?.id !== undefined && selectedUnit?.id !== null && String(selectedUnit.id).trim() !== '') {
+      return String(selectedUnit.id);
+    }
+    return `unit-index-${selectedUnitIndex}`;
+  }, [selectedUnit?.id, selectedUnitIndex]);
+
   const markUnitMaterialOpened = useCallback(async (unitKey, materialType) => {
     if (!unitKey || !['video', 'slide', 'quiz'].includes(materialType)) {
       return;
     }
 
+    const trackingKey = normalizeUnitTrackingKey(unitKey);
+
     setUnitMaterialOpenState((prev) => ({
       ...prev,
-      [unitKey]: {
-        ...(prev[unitKey] || {}),
+      [trackingKey]: {
+        ...(prev[trackingKey] || {}),
         [materialType]: true,
       },
     }));
@@ -202,12 +214,34 @@ const CourseOutlineView = () => {
     } catch (trackingError) {
       console.warn('Failed to track material open event', trackingError);
     }
-  }, [courseId]);
+  }, [courseId, normalizeUnitTrackingKey]);
 
   const canStartQuizForUnit = useCallback((unitKey) => {
-    const state = unitMaterialOpenState[unitKey] || {};
+    const trackingKey = normalizeUnitTrackingKey(unitKey);
+    const state = unitMaterialOpenState[trackingKey] || {};
     return Boolean(state.video && state.slide);
-  }, [unitMaterialOpenState]);
+  }, [normalizeUnitTrackingKey, unitMaterialOpenState]);
+
+  // Also mark prerequisites when media is actually opened in the viewer,
+  // so learners are not blocked by edge cases in button-click timing.
+  useEffect(() => {
+    if (!selectedContent || !selectedUnitId) {
+      return;
+    }
+    if (selectedContent.type !== 'video' && selectedContent.type !== 'slide') {
+      return;
+    }
+
+    const materialType = selectedContent.type;
+    const trackingKey = normalizeUnitTrackingKey(selectedUnitId);
+    setUnitMaterialOpenState((prev) => ({
+      ...prev,
+      [trackingKey]: {
+        ...(prev[trackingKey] || {}),
+        [materialType]: true,
+      },
+    }));
+  }, [selectedContent, selectedUnitId, normalizeUnitTrackingKey]);
 
   // Compute allUnits and selectedUnit early so downstream hooks can safely depend on selectedUnitId.
   const allUnits = useMemo(() => {
