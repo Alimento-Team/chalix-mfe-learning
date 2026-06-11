@@ -1124,8 +1124,6 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
                 marginBottom: 12
               }}
               onClick={() => {
-              );
-            })()
                 // Reset quiz state for retake
                 setResult(null);
                 setAnswers({});
