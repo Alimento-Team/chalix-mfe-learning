@@ -1290,6 +1290,8 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
             })}
           </div>
         </div>
+          );
+        })()
       )}
       </div>
     </>
