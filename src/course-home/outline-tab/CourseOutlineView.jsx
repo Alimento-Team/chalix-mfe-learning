@@ -178,6 +178,26 @@ const CourseOutlineView = () => {
     }
   }, [showFinalConfirm]);
 
+  // Compute allUnits and selectedUnit before first usage in callbacks/effects
+  // to avoid temporal dead zone issues during dependency array evaluation.
+  const allUnits = useMemo(() => {
+    if (!courseData || !Array.isArray(courseData.modules)) {
+      return [];
+    }
+    const list = [];
+    courseData.modules.forEach((module) => {
+      if (Array.isArray(module.units)) {
+        module.units.forEach((unit) => {
+          list.push({ ...unit, sectionTitle: module.title });
+        });
+      }
+    });
+    return list;
+  }, [courseData]);
+
+  const selectedUnit = useMemo(() => allUnits[selectedUnitIndex] || null, [allUnits, selectedUnitIndex]);
+  const selectedUnitId = selectedUnit?.id;
+
   const normalizeUnitTrackingKey = useCallback((unitKey) => {
     if (unitKey !== undefined && unitKey !== null && String(unitKey).trim() !== '') {
       return String(unitKey);
@@ -242,25 +262,6 @@ const CourseOutlineView = () => {
       },
     }));
   }, [selectedContent, selectedUnitId, normalizeUnitTrackingKey]);
-
-  // Compute allUnits and selectedUnit early so downstream hooks can safely depend on selectedUnitId.
-  const allUnits = useMemo(() => {
-    if (!courseData || !Array.isArray(courseData.modules)) {
-      return [];
-    }
-    const list = [];
-    courseData.modules.forEach((module) => {
-      if (Array.isArray(module.units)) {
-        module.units.forEach((unit) => {
-          list.push({ ...unit, sectionTitle: module.title });
-        });
-      }
-    });
-    return list;
-  }, [courseData]);
-
-  const selectedUnit = useMemo(() => allUnits[selectedUnitIndex] || null, [allUnits, selectedUnitIndex]);
-  const selectedUnitId = selectedUnit?.id;
 
   // Load stored quiz result from backend whenever the selected unit changes.
   // Must be declared AFTER selectedUnitId to avoid the temporal dead zone.
