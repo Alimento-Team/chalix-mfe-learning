@@ -749,9 +749,11 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
           aria-label={`Thời gian còn lại: ${formatTime(timeRemaining)}`}
           style={{
             position: 'fixed',
-            top: window.innerWidth <= 768 ? '10px' : '20px',
+            // Keep timer below the global header so it doesn't overlap user-menu actions.
+            top: window.innerWidth <= 768 ? '72px' : '96px',
             right: window.innerWidth <= 768 ? '10px' : '20px',
             zIndex: 1000,
+            pointerEvents: 'none',
             background: timeRemaining < 300 ? '#fee2e2' : '#e3f2fd',
             border: `2px solid ${timeRemaining < 300 ? '#dc2626' : '#1565c0'}`,
             borderRadius: '12px',
