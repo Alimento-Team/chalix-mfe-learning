@@ -412,6 +412,7 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
           
           console.log('📊 Final evaluation result processed:', processedResult);
           setResult(processedResult);
+          if (typeof onResult === 'function') onResult(processedResult);
           return processedResult;
           
         } catch (finalError) {
@@ -486,6 +487,7 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
           
 
           setResult(fallbackResult);
+          if (typeof onResult === 'function') onResult(fallbackResult);
           return fallbackResult;
         }
       } else {
@@ -548,6 +550,7 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
         };
         
         setResult(processedResult);
+        if (typeof onResult === 'function') onResult(processedResult);
         return processedResult;
       }
       
