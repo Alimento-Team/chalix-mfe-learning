@@ -307,9 +307,22 @@ const FinalEvaluationQuiz = ({ courseId, sequenceId, unitId }) => {
   // Show final results from current submission or latest persisted attempt.
   if (result || hasExistingResult) {
     const finalResult = result || existingResult || {};
-    const score = Math.round(finalResult.score || 0);
-    const totalQuestions = finalResult.total_questions || quizData?.questions?.length || 0;
-    const correctAnswers = finalResult.correct_answers || 0;
+    const score = Math.round(finalResult.score ?? finalResult.percentage ?? 0);
+    const scoreArr = Array.isArray(finalResult.score_breakdown) ? finalResult.score_breakdown : (Array.isArray(finalResult.score) ? finalResult.score : null);
+    const totalQuestions = Number(
+      finalResult.total_questions
+      ?? finalResult.points_possible
+      ?? finalResult.total_points
+      ?? scoreArr?.[1]
+      ?? quizData?.questions?.length
+      ?? 0,
+    );
+    const correctAnswers = Number(
+      finalResult.correct_answers
+      ?? finalResult.points_earned
+      ?? scoreArr?.[0]
+      ?? 0,
+    );
     const latestScoreLabel = formatScoreOverTen(score);
     const passedByPolicy = score >= PASS_THRESHOLD_PERCENT;
     const resolvedAttemptsLeft = finalResult.attempts_left ?? finalResult.attempts_remaining ?? attemptsLeft;

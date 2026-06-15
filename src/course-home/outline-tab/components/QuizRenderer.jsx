@@ -1,9 +1,88 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { getConfig } from '@edx/frontend-platform';
-import { getAuthenticatedHttpClient } from '@edx/frontend-platform/auth';
+import { getAuthenticatedHttpClient, getAuthenticatedUser } from '@edx/frontend-platform/auth';
 import { postMaterialOpenEvent } from '../../../courseware/data/api';
 // Confirmation and final submit are handled by the parent component.
+
+const hashToUint32 = (input) => {
+  const text = String(input || '');
+  let hash = 2166136261;
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+};
+
+const createSeededRandom = (seedInput) => {
+  let seed = hashToUint32(seedInput);
+  return () => {
+    seed += 0x6D2B79F5;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+const seededShuffle = (list, rand) => {
+  if (!Array.isArray(list) || list.length <= 1) {
+    return Array.isArray(list) ? [...list] : [];
+  }
+
+  const copy = [...list];
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(rand() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+};
+
+const shuffleQuizData = (rawQuiz, seedInput) => {
+  if (!rawQuiz || !Array.isArray(rawQuiz.questions)) {
+    return rawQuiz;
+  }
+
+  const rand = createSeededRandom(seedInput);
+  const shuffledQuestions = seededShuffle(rawQuiz.questions, rand).map((question) => {
+    if (!question || !Array.isArray(question.choices)) {
+      return question;
+    }
+
+    return {
+      ...question,
+      choices: seededShuffle(question.choices, rand),
+    };
+  });
+
+  return {
+    ...rawQuiz,
+    questions: shuffledQuestions,
+  };
+};
+
+const normalizeCorrectTotal = (resultData, fallbackTotal = 0) => {
+  const scoreArr = Array.isArray(resultData?.score) ? resultData.score : null;
+  const correct = Number(
+    resultData?.correct_answers
+    ?? resultData?.points_earned
+    ?? scoreArr?.[0]
+    ?? 0,
+  );
+  const total = Number(
+    resultData?.total_questions
+    ?? resultData?.points_possible
+    ?? resultData?.total_points
+    ?? scoreArr?.[1]
+    ?? fallbackTotal
+    ?? 0,
+  );
+
+  return {
+    correct: Number.isFinite(correct) ? correct : 0,
+    total: Number.isFinite(total) ? total : 0,
+  };
+};
 
 const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRegister = null, onResult = null, requireConfirm = false, forceOpen = false, disabled = false, showHeader = true }) => {
   const [loading, setLoading] = useState(false);
@@ -18,8 +97,28 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
   const [timerStarted, setTimerStarted] = useState(false);
   const [attemptStatus, setAttemptStatus] = useState(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [shuffleAttempt, setShuffleAttempt] = useState(0);
   const doSubmitRef = useRef(null);
   const wasOpenedRef = useRef(false);
+  const canonicalQuizRef = useRef(null);
+
+  const getShuffleSeed = useCallback((attempt = 0) => {
+    let userToken = 'anonymous';
+    try {
+      const currentUser = getAuthenticatedUser() || {};
+      userToken = String(currentUser.userId || currentUser.username || 'anonymous');
+    } catch (e) {
+      userToken = 'anonymous';
+    }
+
+    return [
+      userToken,
+      selectedContent?.courseId || courseId || '',
+      unitId || '',
+      selectedContent?.id || '',
+      `attempt:${attempt}`,
+    ].join('|');
+  }, [courseId, selectedContent?.courseId, selectedContent?.id, unitId]);
 
   // Function to get current attempt status
   const getAttemptStatus = useCallback(async () => {
@@ -100,6 +199,7 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
       setError(null);
       setQuiz(null);
       setResult(null);
+      canonicalQuizRef.current = null;
       
       try {
         const client = getAuthenticatedHttpClient();
@@ -217,8 +317,11 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
                 attempts_used: attemptsUsed,
                 attempts_remaining: attemptsRemaining
               };
-              
-              setQuiz(combinedQuiz);
+
+              // Keep canonical quiz data untouched to preserve original answer keys.
+              canonicalQuizRef.current = combinedQuiz;
+              const seededQuiz = shuffleQuizData(canonicalQuizRef.current, getShuffleSeed(shuffleAttempt));
+              setQuiz(seededQuiz);
             } else {
               setError('Không có câu hỏi nào trong các bài kiểm tra');
             }
@@ -261,7 +364,7 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
     };
     loadAllQuizzes();
     return () => { cancelled = true; };
-  }, [unitId, opened, selectedContent?.quizList?.length, selectedContent?.courseId]);
+  }, [unitId, opened, selectedContent?.quizList?.length, selectedContent?.courseId, getShuffleSeed, shuffleAttempt]);
 
   // Timer effect for quiz time limit - Only for final evaluation quizzes
   useEffect(() => {
@@ -390,23 +493,27 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
           
           const resp = await client.post(postUrl, payload, { headers: { 'USE-JWT-COOKIE': 'true' } });
           const finalResult = resp.data || {};
+
+          const normalized = normalizeCorrectTotal(finalResult, quiz.questions?.length || 0);
           
 
           
           // Use the result from the final evaluation endpoint
           const processedResult = {
-            points_earned: finalResult.points_earned || finalResult.score || 0,
-            points_possible: finalResult.points_possible || finalResult.total_points || Object.keys(answersByQuiz).length,
-            percentage: finalResult.percentage || finalResult.score_percentage || 0,
-            passing_score: finalResult.passing_score || quiz.passing_score || 70,
-            passed: finalResult.passed || false,
+            points_earned: normalized.correct,
+            points_possible: normalized.total,
+            correct_answers: normalized.correct,
+            total_questions: normalized.total,
+            percentage: finalResult.percentage ?? finalResult.score_percentage ?? 0,
+            passing_score: finalResult.passing_score ?? quiz.passing_score ?? 70,
+            passed: Boolean(finalResult.passed),
             individual_results: finalResult.individual_results || [],
             answer_details: finalResult.answer_details || finalResult.answers || [],
             total_quizzes: Object.keys(answersByQuiz).length,
             successful_submissions: Object.keys(answersByQuiz).length,
-            attempts_remaining: finalResult.attempts_remaining || 0,
-            attempts_used: finalResult.attempts_used || 1,
-            max_attempts: finalResult.max_attempts || quiz.max_attempts || 3,
+            attempts_remaining: finalResult.attempts_remaining ?? 0,
+            attempts_used: finalResult.attempts_used ?? 1,
+            max_attempts: finalResult.max_attempts ?? quiz.max_attempts ?? 3,
             message: finalResult.message
           };
           
@@ -571,8 +678,11 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
           });
           
           // Accumulate total scores
-          totalPointsEarned += quizResult.points_earned || quizResult.score?.[0] || 0;
-          totalPointsPossible += quizResult.points_possible || quizResult.score?.[1] || 1;
+          const scoreArr = Array.isArray(quizResult.score) ? quizResult.score : null;
+          const earned = Number(quizResult.points_earned ?? scoreArr?.[0] ?? 0);
+          const possible = Number(quizResult.points_possible ?? scoreArr?.[1] ?? 0);
+          totalPointsEarned += Number.isFinite(earned) ? earned : 0;
+          totalPointsPossible += Number.isFinite(possible) ? possible : 0;
           
         } catch (quizError) {
           console.error(`❌ Error submitting quiz ${quizId}:`, quizError);
@@ -1130,11 +1240,14 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
               }}
               onClick={() => {
                 // Reset quiz state for retake
+                const nextAttempt = shuffleAttempt + 1;
                 setResult(null);
                 setAnswers({});
                 setError(null);
                 setTimerStarted(false);
                 setTimeRemaining(null);
+                setShuffleAttempt(nextAttempt);
+                setQuiz((prevQuiz) => shuffleQuizData(canonicalQuizRef.current || prevQuiz, getShuffleSeed(nextAttempt)));
               }}
             >
               🔄 Làm lại

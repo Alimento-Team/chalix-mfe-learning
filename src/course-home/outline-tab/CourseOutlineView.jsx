@@ -113,6 +113,27 @@ const deduplicateModulesAndUnits = (payload) => {
   };
 };
 
+const getQuizCorrectTotal = (resultData) => {
+  const scoreArr = Array.isArray(resultData?.score) ? resultData.score : null;
+  const correct = Number(
+    resultData?.correct_answers
+    ?? resultData?.points_earned
+    ?? scoreArr?.[0]
+    ?? 0,
+  );
+  const total = Number(
+    resultData?.total_questions
+    ?? resultData?.points_possible
+    ?? scoreArr?.[1]
+    ?? 0,
+  );
+
+  return {
+    correct: Number.isFinite(correct) ? correct : 0,
+    total: Number.isFinite(total) ? total : 0,
+  };
+};
+
 const CourseOutlineView = () => {
   // All hooks must be at the top level, before any conditional returns
   const { courseId } = useSelector(state => state.courseHome);
@@ -1552,6 +1573,9 @@ const CourseOutlineView = () => {
                           
                           {/* Quiz Results Display */}
                           {quizResults && finalSubmitted && (
+                            (() => {
+                              const normalized = getQuizCorrectTotal(quizResults);
+                              return (
                             <div style={{ 
                               padding: 20, 
                               background: quizResults.passed ? '#d4edda' : '#f8d7da', 
@@ -1572,7 +1596,7 @@ const CourseOutlineView = () => {
                                 <div style={{ padding: 12, background: 'rgba(255,255,255,0.7)', borderRadius: 6 }}>
                                   <div style={{ fontSize: 14, color: '#555', marginBottom: 4 }}>Số câu đúng</div>
                                   <div style={{ fontSize: 24, fontWeight: 600, color: quizResults.passed ? '#155724' : '#721c24' }}>
-                                    {quizResults.correct_answers || 0}/{quizResults.total_questions || 0}
+                                    {normalized.correct}/{normalized.total}
                                   </div>
                                 </div>
                                 {quizResults.passing_score && (
@@ -1603,6 +1627,8 @@ const CourseOutlineView = () => {
                                 </div>
                               )}
                             </div>
+                              );
+                            })()
                           )}
                           
                           {/* Error Display */}
