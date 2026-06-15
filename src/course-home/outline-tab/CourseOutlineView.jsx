@@ -1885,7 +1885,7 @@ const CourseOutlineView = () => {
                   )}
                   {selectedContent && selectedContent.type === 'slide' && selectedContent.fileUrl && (
                     <div className="media-viewer-overlay__player media-viewer-overlay__player--slide">
-                      <React.Suspense fallback={<div style={{ height: 420, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span>Đang chuẩn bị trình xem...</span></div>}>
+                      <React.Suspense fallback={<div style={{ height: 'calc(100vh - 120px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span>Đang chuẩn bị trình xem...</span></div>}>
                         <FileViewer fileUrl={selectedContent.fileUrl} fileName={selectedContent.title || ''} centered />
                       </React.Suspense>
                     </div>

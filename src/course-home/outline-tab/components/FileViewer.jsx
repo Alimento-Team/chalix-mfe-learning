@@ -12,6 +12,7 @@ const FileViewer = ({ fileUrl, fileName, centered }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [blobUrl, setBlobUrl] = useState(null);
+  const viewerHeight = centered ? 'calc(100vh - 120px)' : 'min(760px, calc(100vh - 180px))';
 
   useEffect(() => {
     let cancelled = false;
@@ -61,7 +62,7 @@ const FileViewer = ({ fileUrl, fileName, centered }) => {
 
   if (loading) {
     return (
-      <div style={{ height: 420, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+      <div style={{ height: viewerHeight, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
         <Spinner animation="border" size="sm" />
         <span style={{ marginLeft: 12 }}>Đang tải file...</span>
       </div>
@@ -86,11 +87,11 @@ const FileViewer = ({ fileUrl, fileName, centered }) => {
     // If it's a PDF, use an iframe which most browsers can render inline from a blob URL.
     if (isPdf) {
       return (
-        <div style={{ maxWidth: centered ? 1100 : 980, margin: centered ? '0 auto' : '24px auto 0', width: '100%' }}>
+        <div style={{ maxWidth: centered ? 1280 : 980, margin: centered ? '0 auto' : '24px auto 0', width: '100%' }}>
           <iframe
             title={fileName || 'Document'}
             src={blobUrl}
-            style={{ width: '100%', minHeight: 420, borderRadius: 8, background: '#fff' }}
+            style={{ width: '100%', height: viewerHeight, borderRadius: 8, background: '#fff' }}
           />
         </div>
       );
@@ -99,8 +100,8 @@ const FileViewer = ({ fileUrl, fileName, centered }) => {
     // For other types, try an <object> tag which may allow inline rendering for some types,
     // otherwise the browser will show a download prompt / fallback content.
     return (
-      <div style={{ maxWidth: centered ? 1100 : 980, margin: centered ? '0 auto' : '24px auto 0', width: '100%' }}>
-        <object data={blobUrl} type="application/octet-stream" style={{ width: '100%', minHeight: 420 }}>
+      <div style={{ maxWidth: centered ? 1280 : 980, margin: centered ? '0 auto' : '24px auto 0', width: '100%' }}>
+        <object data={blobUrl} type="application/octet-stream" style={{ width: '100%', height: viewerHeight }}>
           <div style={{ padding: 16 }}>
             <div>Không thể hiển thị tệp trực tiếp.</div>
             <div style={{ marginTop: 8 }}>
