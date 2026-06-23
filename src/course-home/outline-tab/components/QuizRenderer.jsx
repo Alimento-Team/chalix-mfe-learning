@@ -372,14 +372,18 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
     const isFinalEvaluationQuiz = selectedContent?.courseId;
     if (!isFinalEvaluationQuiz || !quiz || !quiz.time_limit || result || !opened) return;
     
+    let currentTimeRemaining = timeRemaining;
+    
     if (!timerStarted) {
-      // Start timer when quiz opens
+      // Start timer when quiz opens or when retaking quiz
       const totalSeconds = quiz.time_limit * 60; // convert minutes to seconds
       setTimeRemaining(totalSeconds);
       setTimerStarted(true);
+      currentTimeRemaining = totalSeconds; // Use calculated value instead of waiting for state update
     }
 
-    if (timeRemaining === null) return;
+    // If timeRemaining hasn't been initialized yet, don't start interval yet
+    if (currentTimeRemaining === null) return;
 
     const timer = setInterval(() => {
       setTimeRemaining(prev => {
@@ -396,7 +400,7 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [quiz?.time_limit, result, opened, timerStarted, timeRemaining, disabled, selectedContent?.courseId]);
+  }, [quiz?.time_limit, result, opened, timerStarted, timeRemaining, disabled, selectedContent?.courseId];
 
   // Format timer display
   const formatTime = (seconds) => {
