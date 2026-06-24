@@ -400,7 +400,7 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [quiz?.time_limit, result, opened, timerStarted, timeRemaining, disabled, selectedContent?.courseId];
+  }, [quiz?.time_limit, result, opened, timerStarted, timeRemaining, disabled, selectedContent?.courseId]);
 
   // Format timer display
   const formatTime = (seconds) => {
