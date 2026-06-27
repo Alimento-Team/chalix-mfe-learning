@@ -1030,6 +1030,7 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
         </div>
       )}
       
+      {!result && (
       <div>
         {(quiz.questions || []).map((q, idx) => {
           const questionNumber = idx + 1;
@@ -1094,6 +1095,7 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
           );
         })}
       </div>
+      )}
       
       {/* Submit button - only show if quiz is opened and no result yet */}
       {opened && !result && !disabled && (

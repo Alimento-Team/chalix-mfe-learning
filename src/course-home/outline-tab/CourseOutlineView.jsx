@@ -155,6 +155,7 @@ const CourseOutlineView = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedContent, setSelectedContent] = useState(null); // { type, id, title, url }
   const [showQuizListInline, setShowQuizListInline] = useState(false);
+  const [quizRenderNonce, setQuizRenderNonce] = useState(0);
   // State for real content lists (must be before any logic)
   const [videoList, setVideoList] = useState([]);
   const [slideList, setSlideList] = useState([]);
@@ -1153,9 +1154,12 @@ const CourseOutlineView = () => {
 
       <div className={classNames('mobile-unit-drawer', { 'is-open': isMobileUnitDrawerOpen })}>
         <div className="mobile-unit-drawer__header">
+                              const isRetake = Boolean(prevQuizResult);
           <div className="mobile-unit-drawer__title">Chọn bài học</div>
-          <button
-            type="button"
+                                if (!isRetake) {
+                                  setShowPrereqModal(true);
+                                  return;
+                                }
             className="mobile-unit-drawer__close"
             onClick={() => setIsMobileUnitDrawerOpen(false)}
           >
@@ -1256,7 +1260,8 @@ const CourseOutlineView = () => {
                             type="button"
                             style={{ background: '#0070d2', color: '#fff', border: 'none', borderRadius: 4, padding: '8px 18px', fontWeight: 600, fontSize: 15, cursor: 'pointer' }}
                             onClick={async () => {
-                              if (!canStartQuizForUnit(selectedUnitId)) {
+                              const isRetake = Boolean(prevQuizResult);
+                              if (!isRetake && !canStartQuizForUnit(selectedUnitId)) {
                                 setShowPrereqModal(true);
                                 return;
                               }
@@ -1277,6 +1282,10 @@ const CourseOutlineView = () => {
                                 
                                 if (list && list.length > 0) {
                                   console.log('✅ Found', list.length, 'quizzes, showing quiz interface');
+                                  const nextNonce = isRetake ? (quizRenderNonce + 1) : quizRenderNonce;
+                                  if (isRetake) {
+                                    setQuizRenderNonce(nextNonce);
+                                  }
                                   
                                   // Show quiz list below
                                   setShowQuizListInline(true);
@@ -1284,7 +1293,8 @@ const CourseOutlineView = () => {
                                     id: 'combined-quiz', 
                                     type: 'questions', 
                                     title: selectedUnit.title,
-                                    quizList: list
+                                    quizList: list,
+                                    renderNonce: nextNonce,
                                   });
                                 } else {
                                   console.warn('⚠️ No quizzes found');
@@ -1925,6 +1935,7 @@ const CourseOutlineView = () => {
                           {/* Render single combined QuizRenderer with all quizzes */}
                           <div style={{ background: '#fff', padding: 14, borderRadius: 8, boxShadow: '0 1px 0 rgba(0,0,0,0.04)' }}>
                             <QuizRenderer
+                              key={`quiz-${selectedUnitId}-${selectedContent?.renderNonce || 0}`}
                               selectedContent={{
                                 type: 'questions',
                                 // Only pass courseId for final evaluation quizzes
