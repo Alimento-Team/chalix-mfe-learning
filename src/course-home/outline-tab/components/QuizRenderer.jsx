@@ -742,6 +742,28 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
     }
   }, [disabled, quiz, answers, unitId]);
 
+  const handleRetake = useCallback(() => {
+    const nextAttempt = shuffleAttempt + 1;
+
+    // Ensure quiz returns to interactive mode immediately.
+    setOpened(true);
+    setHighlighted(false);
+    setShowConfirmDialog(false);
+    setError(null);
+    setResult(null);
+    setAnswers({});
+
+    // Reset timer state for timed quizzes.
+    setTimerStarted(false);
+    setTimeRemaining(null);
+
+    setShuffleAttempt(nextAttempt);
+    setQuiz((prevQuiz) => {
+      const sourceQuiz = canonicalQuizRef.current || prevQuiz;
+      return shuffleQuizData(sourceQuiz, getShuffleSeed(nextAttempt));
+    });
+  }, [getShuffleSeed, shuffleAttempt]);
+
   // Update the ref when doSubmit changes
   useEffect(() => {
     doSubmitRef.current = doSubmit;
@@ -1245,15 +1267,7 @@ const QuizRenderer = ({ selectedContent = null, courseId = '', unitId = '', onRe
                 marginBottom: 12
               }}
               onClick={() => {
-                // Reset quiz state for retake
-                const nextAttempt = shuffleAttempt + 1;
-                setResult(null);
-                setAnswers({});
-                setError(null);
-                setTimerStarted(false);
-                setTimeRemaining(null);
-                setShuffleAttempt(nextAttempt);
-                setQuiz((prevQuiz) => shuffleQuizData(canonicalQuizRef.current || prevQuiz, getShuffleSeed(nextAttempt)));
+                handleRetake();
               }}
             >
               🔄 Làm lại

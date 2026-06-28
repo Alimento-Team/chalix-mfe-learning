@@ -1154,12 +1154,9 @@ const CourseOutlineView = () => {
 
       <div className={classNames('mobile-unit-drawer', { 'is-open': isMobileUnitDrawerOpen })}>
         <div className="mobile-unit-drawer__header">
-                              const isRetake = Boolean(prevQuizResult);
           <div className="mobile-unit-drawer__title">Chọn bài học</div>
-                                if (!isRetake) {
-                                  setShowPrereqModal(true);
-                                  return;
-                                }
+          <button
+            type="button"
             className="mobile-unit-drawer__close"
             onClick={() => setIsMobileUnitDrawerOpen(false)}
           >
