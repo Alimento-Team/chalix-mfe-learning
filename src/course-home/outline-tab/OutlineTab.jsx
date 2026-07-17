@@ -11,7 +11,6 @@ import { AlertList } from '../../generic/user-messages';
 import CourseDates from './widgets/CourseDates';
 import CourseHandouts from './widgets/CourseHandouts';
 import WeeklyLearningGoalCard from './widgets/WeeklyLearningGoalCard';
-import CourseTools from './widgets/CourseTools';
 import { fetchOutlineTab } from '../data';
 import ShiftDatesAlert from '../suggested-schedule-messaging/ShiftDatesAlert';
 import UpgradeToShiftDatesAlert from '../suggested-schedule-messaging/UpgradeToShiftDatesAlert';
@@ -154,7 +153,6 @@ const OutlineTab = () => {
                   subscribedToReminders={selectedGoal && 'subscribedToReminders' in selectedGoal ? selectedGoal.subscribedToReminders : false}
                 />
               )}
-              <CourseTools />
               <CourseOutlineTabNotificationsSlot courseId={courseId} />
               <CourseDates />
               <CourseHandouts />
