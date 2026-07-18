@@ -59,7 +59,7 @@ subscribe(APP_READY, () => {
         window.location.href = lmsBaseUrl;
         break;
       case 'category':
-        window.location.href = `${learnerDashboardUrl}/`;
+        window.location.href = `${learnerDashboardUrl}/?tab=user-guides`;
         break;
       case 'learning':
         window.location.href = lmsBaseUrl;
