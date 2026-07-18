@@ -10,7 +10,6 @@ import { useModel } from '../generic/model-store';
 import { AlertList } from '../generic/user-messages';
 import StreakModal from '../shared/streak-celebration';
 import InstructorToolbar from '../instructor-toolbar';
-import useEnrollmentAlert from '../alerts/enrollment-alert';
 import useLogistrationAlert from '../alerts/logistration-alert';
 
 import ProductTours from '../product-tours/ProductTours';
@@ -35,7 +34,6 @@ const LoadedTabPage = ({
   // Logistration and enrollment alerts are only really used for the outline tab, but loaded here to put them above
   // breadcrumbs when they are visible.
   const logistrationAlert = useLogistrationAlert(courseId);
-  const enrollmentAlert = useEnrollmentAlert(courseId);
 
   const activeTab = tabs.filter(tab => tab.slug === activeTabSlug)[0];
 
@@ -76,7 +74,6 @@ const LoadedTabPage = ({
           topic="outline"
           className="mx-5 mt-3"
           customAlerts={{
-            ...enrollmentAlert,
             ...logistrationAlert,
           }}
         />
