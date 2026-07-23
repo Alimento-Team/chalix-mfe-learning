@@ -18,6 +18,7 @@ const FacialExpressionRecorder = ({
   unitId,
   isActive,
   onError,
+  onClose,
 }) => {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -31,6 +32,29 @@ const FacialExpressionRecorder = ({
   const recordingStartTimeRef = useRef(null);
   const recordingTimerRef = useRef(null);
   const [recordingDuration, setRecordingDuration] = useState(0);
+
+  const clearActiveTimers = useCallback(() => {
+    if (uploadIntervalRef.current) {
+      clearInterval(uploadIntervalRef.current);
+      uploadIntervalRef.current = null;
+    }
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+  }, []);
+
+  const detachAndStopStream = useCallback(() => {
+    if (videoRef.current) {
+      videoRef.current.pause?.();
+      videoRef.current.srcObject = null;
+    }
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+  }, []);
 
   const attachStreamToVideo = useCallback(async () => {
     if (!streamRef.current || !videoRef.current) {
@@ -182,23 +206,13 @@ const FacialExpressionRecorder = ({
   // Cleanup streams/intervals only when component unmounts.
   useEffect(() => {
     return () => {
-      if (uploadIntervalRef.current) {
-        clearInterval(uploadIntervalRef.current);
-        uploadIntervalRef.current = null;
-      }
-      if (recordingTimerRef.current) {
-        clearInterval(recordingTimerRef.current);
-        recordingTimerRef.current = null;
-      }
+      clearActiveTimers();
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         mediaRecorderRef.current.stop();
       }
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-      }
+      detachAndStopStream();
     };
-  }, []);
+  }, [clearActiveTimers, detachAndStopStream]);
 
   const requestCameraPermission = async () => {
     setCameraError('');
@@ -406,14 +420,7 @@ const FacialExpressionRecorder = ({
       console.log('Recording stopped. Duration:', finalDuration / 1000, 'seconds');
       
       // Clear intervals
-      if (uploadIntervalRef.current) {
-        clearInterval(uploadIntervalRef.current);
-        uploadIntervalRef.current = null;
-      }
-      if (recordingTimerRef.current) {
-        clearInterval(recordingTimerRef.current);
-        recordingTimerRef.current = null;
-      }
+      clearActiveTimers();
 
       // Save final state to localStorage
       const meetsMinDuration = finalDuration >= MIN_RECORDING_DURATION;
@@ -430,7 +437,37 @@ const FacialExpressionRecorder = ({
         uploadRecordedChunks(true, finalDuration);
       }, 1000);
     }
-  }, [isRecording, recordingDuration, saveRecordingState, clearRecordingState, uploadRecordedChunks]);
+  }, [isRecording, recordingDuration, saveRecordingState, clearRecordingState, uploadRecordedChunks, clearActiveTimers]);
+
+  const handleCloseRecorder = useCallback(() => {
+    clearActiveTimers();
+    clearRecordingState();
+    recordingChunksRef.current = [];
+    recordingStartTimeRef.current = null;
+    setRecordingDuration(0);
+    setIsRecording(false);
+
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.removeEventListener('dataavailable', handleDataAvailable);
+
+      if (mediaRecorderRef.current.state !== 'inactive') {
+        try {
+          mediaRecorderRef.current.stop();
+        } catch (stopError) {
+          console.warn('Failed to stop media recorder while closing webcam preview', stopError);
+        }
+      }
+
+      mediaRecorderRef.current = null;
+    }
+
+    detachAndStopStream();
+    setHasPermission(null);
+
+    if (onClose) {
+      onClose();
+    }
+  }, [clearActiveTimers, clearRecordingState, detachAndStopStream, handleDataAvailable, onClose]);
 
   if (!isActive) {
     return null;
@@ -492,6 +529,14 @@ const FacialExpressionRecorder = ({
   return (
     <div className="facial-expression-recorder">
       <div className="webcam-container">
+        <button
+          type="button"
+          className="webcam-close-btn"
+          aria-label="Tắt camera khuôn mặt"
+          onClick={handleCloseRecorder}
+        >
+          ×
+        </button>
         <video
           ref={handleVideoRef}
           autoPlay
@@ -530,10 +575,12 @@ FacialExpressionRecorder.propTypes = {
   unitId: PropTypes.string.isRequired,
   isActive: PropTypes.bool.isRequired,
   onError: PropTypes.func,
+  onClose: PropTypes.func,
 };
 
 FacialExpressionRecorder.defaultProps = {
   onError: null,
+  onClose: null,
 };
 
 export default FacialExpressionRecorder;

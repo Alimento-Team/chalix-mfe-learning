@@ -94,6 +94,7 @@ const Unit = ({
           unitId={id}
           isActive={showRecorder}
           onError={handleRecorderError}
+          onClose={() => setShowRecorder(false)}
         />
       )}
     </div>

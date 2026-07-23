@@ -2005,6 +2005,7 @@ const CourseOutlineView = () => {
             console.error('Facial expression recorder error:', error);
             // Don't block the learning experience
           }}
+          onClose={() => setShowFacialRecorder(false)}
         />
       )}
 
